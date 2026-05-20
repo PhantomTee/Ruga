@@ -3,8 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConnectKitProvider } from "connectkit";
 import { useState } from "react";
-import { injected } from "@wagmi/core";
-import { walletConnect } from "wagmi/connectors";
+import { injected, walletConnect } from "wagmi/connectors";
 import { createConfig, http, WagmiProvider } from "wagmi";
 import { defineChain } from "viem";
 
