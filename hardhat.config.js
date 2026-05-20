@@ -1,4 +1,5 @@
 require("@nomicfoundation/hardhat-ethers");
+require("dotenv").config({ path: ".env.local" });
 
 /** @type {import("hardhat/config").HardhatUserConfig} */
 module.exports = {
@@ -15,7 +16,9 @@ module.exports = {
     arcTestnet: {
       url: process.env.NEXT_PUBLIC_ARC_RPC || "",
       chainId: Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID),
-      accounts: process.env.AGENT_PRIVATE_KEY ? [process.env.AGENT_PRIVATE_KEY] : []
+      accounts: process.env.AGENT_PRIVATE_KEY ? [process.env.AGENT_PRIVATE_KEY] : [],
+      timeout: 120000,
+      httpHeaders: {}
     }
   }
 };
