@@ -6,9 +6,11 @@ type CoinGeckoSearch = {
 
 function cgHeaders(): Record<string, string> {
   const apiKey = process.env.COINGECKO_API_KEY;
+  // CG- prefix = demo key, otherwise pro key — different headers
+  const keyHeader = apiKey?.startsWith("CG-") ? "x-cg-demo-api-key" : "x-cg-pro-api-key";
   return {
     accept: "application/json",
-    ...(apiKey ? { "x-cg-pro-api-key": apiKey } : {})
+    ...(apiKey ? { [keyHeader]: apiKey } : {})
   };
 }
 
