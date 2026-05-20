@@ -8,8 +8,8 @@ export type GitHubCommitDetail = GitHubCommitListItem & {
 };
 
 export function githubHeaders() {
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) throw new Error("GITHUB_TOKEN is required");
+  const token = process.env.GITHUB_TOKEN || process.env.GH_PAT;
+  if (!token) throw new Error("GITHUB_TOKEN (or GH_PAT) is required");
   return {
     accept: "application/vnd.github.v3+json",
     authorization: `Bearer ${token}`
