@@ -138,7 +138,6 @@ export function MarketDetailClient({ id }: { id: string }) {
                   <span>{formatUsd(bet.amount)} USDC</span>
                 </div>
               ))}
-              {bets.length === 0 ? <div className="p-3 text-xs text-white/45">No bets recorded yet.</div> : null}
             </div>
           </div>
         </aside>

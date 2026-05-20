@@ -72,7 +72,6 @@ export function HomeTerminal() {
                 <div className="mt-2 text-white/40">{item.tokens_found?.join(", ") || "NO TOKENS"}</div>
               </div>
             ))}
-            {!loading && feed.length === 0 ? <div className="p-4 text-xs text-white/45">No commits processed yet.</div> : null}
           </div>
         </section>
 
@@ -83,11 +82,6 @@ export function HomeTerminal() {
             {!loading && markets.map((market) => (
               <MarketCard key={market.id} market={market} onRefresh={loadMarkets} />
             ))}
-            {!loading && markets.length === 0 ? (
-              <div className="border border-ruga-line bg-black/60 p-6 text-sm text-white/55">
-                No markets are stored yet. Run `/api/agent/scan` after configuring Supabase, Groq, GitHub, Arc RPC, and the deployed contract.
-              </div>
-            ) : null}
           </div>
         </section>
 
@@ -102,7 +96,6 @@ export function HomeTerminal() {
                 <span>${formatUsd(row.won)}</span>
               </div>
             ))}
-            {!loading && leaderboard.length === 0 ? <div className="p-4 text-xs text-white/45">No resolved winners yet.</div> : null}
           </div>
         </section>
       </div>
