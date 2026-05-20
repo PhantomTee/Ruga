@@ -3,6 +3,7 @@ import { assertAgentAuthorized } from "@/lib/agent-auth";
 import { resolveOnChainMarket } from "@/lib/chain";
 import { getUsdPrice, scaleUsd } from "@/lib/coingecko";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { toMessage } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -43,7 +44,7 @@ async function resolveExpiredMarkets(request: NextRequest) {
 
     return NextResponse.json({ resolved });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown resolution failure";
+    const message = toMessage(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

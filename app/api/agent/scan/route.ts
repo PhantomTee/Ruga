@@ -6,6 +6,7 @@ import { fetchCommitDetail, fetchCommits, extractBlacklistSymbols, extractPatch 
 import { validateRugSignal } from "@/lib/groq";
 import type { CommitStatus } from "@/lib/agent-status";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { toMessage } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -133,7 +134,7 @@ async function scan(request: NextRequest) {
 
     return NextResponse.json({ marketsCreated, tokensScanned: [...new Set(tokensScanned)] });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown scan failure";
+    const message = toMessage(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

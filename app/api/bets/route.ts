@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseUnits } from "ethers";
 import { verifyBetTransactionDetails } from "@/lib/chain";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { toMessage } from "@/lib/errors";
 
 // Integer microdollar arithmetic to avoid float precision loss on USDC amounts
 function addUsdc(a: string | number | null, b: string): string {
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown bet recording failure";
+    const message = toMessage(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

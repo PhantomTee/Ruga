@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { toMessage } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export async function GET() {
 
     return NextResponse.json({ leaderboard });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown leaderboard failure";
+    const message = toMessage(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

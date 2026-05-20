@@ -3,6 +3,7 @@ import { getOnChainMarket } from "@/lib/chain";
 import { getMarketChart } from "@/lib/coingecko";
 import { CONTRACT_ADDRESS } from "@/lib/constants";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { toMessage } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     return NextResponse.json({ market: { ...market, ...onChain }, bets: bets || [], chart });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown market detail failure";
+    const message = toMessage(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
