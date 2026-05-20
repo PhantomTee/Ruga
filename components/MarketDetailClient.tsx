@@ -9,6 +9,7 @@ import { CONTRACT_ADDRESS } from "@/lib/constants";
 import { formatUsd, truncateAddress } from "@/lib/format";
 import { unscaleUsd } from "@/lib/price";
 import { BetModal } from "./BetModal";
+import { Nav } from "./Nav";
 import { PriceChart } from "./PriceChart";
 import type { Bet, Market } from "./types";
 import { coingeckoId, marketName, marketSymbol, noPool, yesPool } from "./types";
@@ -38,8 +39,23 @@ export function MarketDetailClient({ id }: { id: string }) {
     load().catch((err) => setError(err instanceof Error ? err.message : "Failed to load market"));
   }, [load]);
 
-  if (error) return <Shell><div className="border border-ruga-red bg-ruga-red/10 p-4 text-ruga-red">{error}</div></Shell>;
-  if (!market) return <Shell><div className="p-4 text-white/50">Loading market...</div></Shell>;
+  if (error) {
+    return (
+      <div className="min-h-screen bg-ruga-red">
+        <Nav />
+        <div className="px-6 py-10 font-mono text-sm text-black">{error}</div>
+      </div>
+    );
+  }
+
+  if (!market) {
+    return (
+      <div className="min-h-screen bg-ruga-red">
+        <Nav />
+        <div className="px-6 py-10 font-display text-6xl text-black animate-pulse">LOADING…</div>
+      </div>
+    );
+  }
 
   const start = Number(market.priceAtCreation ?? unscaleUsd(market.price_at_creation));
   const final = unscaleUsd(market.final_price);
@@ -52,8 +68,7 @@ export function MarketDetailClient({ id }: { id: string }) {
       if (!address) throw new Error("Connect a wallet before claiming");
       if (!walletClient) throw new Error("No active wallet client found");
       if (!CONTRACT_ADDRESS) throw new Error("NEXT_PUBLIC_CONTRACT_ADDRESS is not configured");
-      if (!market) throw new Error("Market is not loaded");
-
+      if (!market) throw new Error("Market not loaded");
       setClaiming(true);
       const provider = new BrowserProvider(walletClient.transport as Eip1193Provider);
       const signer = await provider.getSigner();
@@ -62,11 +77,7 @@ export function MarketDetailClient({ id }: { id: string }) {
       const receipt = await tx.wait();
       setClaimTx(receipt.hash);
     } catch (err) {
-      const rejected =
-        typeof err === "object" &&
-        err !== null &&
-        ("code" in err || "info" in err) &&
-        JSON.stringify(err).includes("4001");
+      const rejected = JSON.stringify(err).includes("4001");
       setClaimError(rejected ? "Claim rejected in wallet" : err instanceof Error ? err.message : "Claim failed");
     } finally {
       setClaiming(false);
@@ -74,93 +85,139 @@ export function MarketDetailClient({ id }: { id: string }) {
   }
 
   return (
-    <Shell>
-      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-        <section className="space-y-4">
-          <div className="border border-ruga-line bg-ruga-panel p-4">
-            <div className="text-xs uppercase text-ruga-green">Market #{market.id}</div>
-            <h1 className="mt-2 text-5xl font-black">{marketSymbol(market)}</h1>
-            <div className="mt-1 text-white/60">{marketName(market)}</div>
-            <div className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
-              <Metric label="YES Pool" value={`${formatUsd(yesPool(market))} USDC`} />
-              <Metric label="NO Pool" value={`${formatUsd(noPool(market))} USDC`} />
-              <Metric label="Open Price" value={`$${Number(start).toExponential(4)}`} />
-              <Metric label="Status" value={market.resolved ? (market.outcome ? "RUGGED" : "SURVIVED") : "OPEN"} danger={market.resolved && !market.outcome} />
+    <div className="min-h-screen bg-ruga-red">
+      <Nav />
+
+      <div className="px-6 py-8 grid gap-6 lg:grid-cols-[1fr_340px]">
+        {/* Left column */}
+        <div className="space-y-4">
+          {/* Title block */}
+          <div className="border-2 border-black bg-white p-6">
+            <div className="font-mono text-xs text-black/40 uppercase">Market #{market.id}</div>
+            <h1 className="font-display leading-none text-black mt-1" style={{ fontSize: "clamp(4rem, 10vw, 8rem)" }}>
+              {marketSymbol(market)}
+            </h1>
+            <div className="font-mono text-sm text-black/50 mt-1">{marketName(market)}</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-6">
+              <Stat label="YES Pool" value={`${formatUsd(yesPool(market))} USDC`} />
+              <Stat label="NO Pool" value={`${formatUsd(noPool(market))} USDC`} />
+              <Stat label="Open Price" value={`$${Number(start).toExponential(3)}`} />
+              <Stat
+                label="Status"
+                value={market.resolved ? (market.outcome ? "RUGGED" : "SURVIVED") : "OPEN"}
+                highlight={market.resolved && Boolean(market.outcome)}
+              />
             </div>
           </div>
 
-          <PriceChart prices={prices} />
-
-          <div className="border border-ruga-line bg-black p-4">
-            <h2 className="text-sm font-black text-ruga-green">WHY RUGA FLAGGED THIS</h2>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-white/75">{market.groq_reasoning || "No Groq reasoning stored for this market."}</p>
+          {/* Chart */}
+          <div className="border-2 border-black bg-white p-4">
+            <PriceChart prices={prices} />
           </div>
 
-          {market.resolved ? (
-            <div className="border border-ruga-line bg-ruga-panel p-4 text-sm">
-              Final price: ${final.toExponential(4)} / Change: {change?.toFixed(2)}%
-            </div>
-          ) : null}
-        </section>
+          {/* Groq reasoning */}
+          <div className="border-2 border-black bg-white p-5">
+            <div className="font-display text-xl text-black mb-3">WHY RUGA FLAGGED THIS</div>
+            <p className="font-mono text-sm text-black/70 whitespace-pre-wrap leading-6">
+              {market.groq_reasoning || "No reasoning stored for this market."}
+            </p>
+          </div>
 
-        <aside className="space-y-4">
-          <div className="border border-ruga-line bg-ruga-panel p-4">
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setSide("yes")} disabled={market.resolved} className="bg-ruga-green px-3 py-3 font-black uppercase text-black disabled:opacity-30">Bet Yes</button>
-              <button onClick={() => setSide("no")} disabled={market.resolved} className="bg-ruga-red px-3 py-3 font-black uppercase text-black disabled:opacity-30">Bet No</button>
+          {/* Resolution */}
+          {market.resolved && (
+            <div className="border-2 border-black bg-white p-5 font-mono text-sm text-black">
+              Final price: ${final?.toExponential(4)} · Change: {change?.toFixed(2)}%
             </div>
-            {market.resolved ? (
-              <div className="mt-3">
+          )}
+        </div>
+
+        {/* Right column */}
+        <div className="space-y-4">
+          {/* Bet / Claim */}
+          <div className="border-2 border-black bg-white p-5">
+            {!market.resolved ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setSide("yes")}
+                  className="border-2 border-black bg-black text-white py-4 font-display text-2xl hover:bg-ruga-red hover:text-black transition-colors"
+                >
+                  YES
+                </button>
+                <button
+                  onClick={() => setSide("no")}
+                  className="border-2 border-black bg-white text-black py-4 font-display text-2xl hover:bg-black hover:text-white transition-colors"
+                >
+                  NO
+                </button>
+              </div>
+            ) : (
+              <div>
                 <button
                   onClick={claimWinnings}
                   disabled={claiming}
-                  className="w-full border border-ruga-green px-3 py-3 text-sm font-black uppercase text-ruga-green hover:bg-ruga-green hover:text-black disabled:cursor-wait disabled:opacity-50"
+                  className="w-full border-2 border-black bg-black text-white py-4 font-display text-2xl hover:bg-ruga-red hover:text-black transition-colors disabled:opacity-50 disabled:cursor-wait"
                 >
-                  {claiming ? "Claiming Winnings" : "Claim Winnings"}
+                  {claiming ? "CLAIMING…" : "CLAIM WINNINGS"}
                 </button>
-                {claimTx ? <div className="mt-2 break-all text-xs text-ruga-green">Claim tx: {claimTx}</div> : null}
-                {claimError ? <div className="mt-2 border border-ruga-red bg-ruga-red/10 p-2 text-xs text-ruga-red">{claimError}</div> : null}
+                {claimTx && <div className="mt-3 font-mono text-xs text-black/50 break-all">TX: {claimTx}</div>}
+                {claimError && <div className="mt-3 border-2 border-black bg-ruga-red/10 p-3 font-mono text-xs text-black">{claimError}</div>}
               </div>
-            ) : null}
-            <div className="mt-4 space-y-2 text-xs text-white/60">
-              {coingeckoId(market) ? <a className="block text-ruga-green" href={`https://www.coingecko.com/en/coins/${coingeckoId(market)}`} target="_blank" rel="noreferrer">CoinGecko: {coingeckoId(market)}</a> : null}
-              {market.commit_sha ? <a className="block text-ruga-green" href={`https://github.com/iterativv/NostalgiaForInfinity/commit/${market.commit_sha}`} target="_blank" rel="noreferrer">GitHub commit: {market.commit_sha.slice(0, 12)}</a> : null}
+            )}
+
+            <div className="mt-4 space-y-1 font-mono text-xs text-black/40">
+              {coingeckoId(market) && (
+                <a
+                  href={`https://www.coingecko.com/en/coins/${coingeckoId(market)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block underline hover:text-black"
+                >
+                  CoinGecko ↗
+                </a>
+              )}
+              {market.commit_sha && (
+                <a
+                  href={`https://github.com/iterativv/NostalgiaForInfinity/commit/${market.commit_sha}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block underline hover:text-black"
+                >
+                  GitHub commit ↗
+                </a>
+              )}
             </div>
           </div>
 
-          <div className="border border-ruga-line bg-ruga-panel">
-            <div className="border-b border-ruga-line p-3 text-sm font-black text-ruga-green">BET HISTORY</div>
-            <div className="max-h-[520px] overflow-y-auto">
+          {/* Bet history */}
+          <div className="border-2 border-black bg-white">
+            <div className="border-b-2 border-black px-5 py-3 font-display text-xl text-black">BET HISTORY</div>
+            <div className="max-h-96 overflow-y-auto divide-y-2 divide-black">
               {bets.map((bet) => (
-                <div key={bet.id} className="grid grid-cols-[1fr_auto_auto] gap-2 border-b border-ruga-line p-3 text-xs">
-                  <span>{truncateAddress(bet.wallet_address)}</span>
-                  <span className={bet.side === "yes" ? "text-ruga-green" : "text-ruga-red"}>{bet.side.toUpperCase()}</span>
-                  <span>{formatUsd(bet.amount)} USDC</span>
+                <div key={bet.id} className="flex items-center justify-between px-5 py-3 gap-3">
+                  <span className="font-mono text-xs text-black/50 truncate">{truncateAddress(bet.wallet_address)}</span>
+                  <span className={`font-display text-lg ${bet.side === "yes" ? "text-black" : "text-ruga-red"}`}>
+                    {bet.side.toUpperCase()}
+                  </span>
+                  <span className="font-mono text-xs text-black shrink-0">{formatUsd(bet.amount)} USDC</span>
                 </div>
               ))}
             </div>
           </div>
-        </aside>
+        </div>
       </div>
-      {side ? <BetModal market={market} side={side} onClose={() => setSide(null)} onSuccess={() => { setSide(null); load(); }} /> : null}
-    </Shell>
+
+      {side && (
+        <BetModal market={market} side={side} onClose={() => setSide(null)} onSuccess={() => { setSide(null); load(); }} />
+      )}
+    </div>
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <main className="terminal-grid min-h-screen bg-ruga-black p-4 text-white">
-      <Link className="mb-4 inline-block text-sm text-ruga-green" href="/">{"<-"} RUGA</Link>
-      {children}
-    </main>
-  );
-}
-
-function Metric({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
-  return (
-    <div className="border border-ruga-line bg-black p-3">
-      <div className="text-[10px] uppercase text-white/45">{label}</div>
-      <div className={danger ? "text-ruga-red" : "text-white"}>{value}</div>
+    <div className="border-2 border-black p-3">
+      <div className="font-mono text-xs text-black/40 uppercase">{label}</div>
+      <div className={`font-mono text-sm font-bold mt-1 ${highlight ? "text-ruga-red" : "text-black"}`}>{value}</div>
     </div>
   );
 }

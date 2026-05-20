@@ -22,61 +22,63 @@ export function MarketCard({ market, onRefresh }: { market: Market; onRefresh: (
   }, [market]);
 
   return (
-    <article className="border border-ruga-line bg-ruga-panel p-4 transition hover:border-ruga-green/70">
-      <div className="flex items-start justify-between gap-3">
+    <article className="border-2 border-black bg-white flex flex-col">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 p-4 border-b-2 border-black">
         <Link href={`/market/${market.id}`} className="min-w-0">
-          <div className="truncate text-3xl font-black text-white">{marketSymbol(market)}</div>
-          <div className="text-xs uppercase text-ruga-green">RUG OR HODL?</div>
+          <div className="font-display text-5xl leading-none text-black truncate">
+            {marketSymbol(market)}
+          </div>
+          <div className="font-mono text-xs text-black/40 uppercase mt-1">rug or hodl?</div>
         </Link>
-        <div className="text-right text-xs">
+        <div className="font-mono text-xs text-right shrink-0 pt-1">
           {market.resolved ? (
-            <span className={market.outcome ? "text-ruga-green" : "text-ruga-red"}>
-              {market.outcome ? "RUGGED ✓" : "SURVIVED ✗"}
+            <span className={`font-bold uppercase ${market.outcome ? "text-ruga-red" : "text-black"}`}>
+              {market.outcome ? "RUGGED" : "SURVIVED"}
             </span>
           ) : (
-            <span className="text-white/65">{formatDuration(remaining)}</span>
+            <span className="text-black/50">{formatDuration(remaining)}</span>
           )}
         </div>
       </div>
 
-      <div className="mt-4 space-y-2">
-        <div className="h-3 overflow-hidden border border-ruga-line bg-black">
-          <div className="h-full bg-ruga-green" style={{ width: `${yesPct}%` }} />
+      {/* Pool bar */}
+      <div className="px-4 py-3 border-b-2 border-black">
+        <div className="h-2 bg-black/10 w-full">
+          <div className="h-full bg-black transition-all" style={{ width: `${yesPct}%` }} />
         </div>
-        <div className="grid grid-cols-2 text-xs">
-          <div className="text-ruga-green">YES {yesPct}% / {yes.toFixed(2)} USDC</div>
-          <div className="text-right text-ruga-red">NO {noPct}% / {no.toFixed(2)} USDC</div>
+        <div className="flex justify-between mt-2 font-mono text-xs text-black/60">
+          <span>YES {yesPct}% · {yes.toFixed(0)} USDC</span>
+          <span>NO {noPct}% · {no.toFixed(0)} USDC</span>
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      {/* Buttons */}
+      <div className="grid grid-cols-2 gap-0 mt-auto">
         <button
           disabled={market.resolved}
           onClick={() => setBetSide("yes")}
-          className="bg-ruga-green px-3 py-2 text-sm font-black uppercase text-black disabled:opacity-30"
+          className="border-r border-black py-3 font-display text-2xl bg-black text-white hover:bg-ruga-red hover:text-black transition-colors disabled:opacity-25"
         >
-          Bet Yes
+          YES
         </button>
         <button
           disabled={market.resolved}
           onClick={() => setBetSide("no")}
-          className="bg-ruga-red px-3 py-2 text-sm font-black uppercase text-black disabled:opacity-30"
+          className="py-3 font-display text-2xl bg-white text-black hover:bg-black hover:text-white transition-colors disabled:opacity-25"
         >
-          Bet No
+          NO
         </button>
       </div>
 
-      {betSide ? (
+      {betSide && (
         <BetModal
           market={market}
           side={betSide}
           onClose={() => setBetSide(null)}
-          onSuccess={() => {
-            setBetSide(null);
-            onRefresh();
-          }}
+          onSuccess={() => { setBetSide(null); onRefresh(); }}
         />
-      ) : null}
+      )}
     </article>
   );
 }
