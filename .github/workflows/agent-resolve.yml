@@ -1,0 +1,19 @@
+name: Agent Resolve
+
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger resolve endpoint
+        run: |
+          curl -sf -X POST "${{ secrets.RUGA_APP_URL }}/api/agent/resolve" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --max-time 540 \
+            -w "\nHTTP %{http_code}"

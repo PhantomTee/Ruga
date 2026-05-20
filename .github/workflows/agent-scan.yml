@@ -1,0 +1,19 @@
+name: Agent Scan
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Trigger scan endpoint
+        run: |
+          curl -sf -X POST "${{ secrets.RUGA_APP_URL }}/api/agent/scan" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --max-time 90 \
+            -w "\nHTTP %{http_code}"

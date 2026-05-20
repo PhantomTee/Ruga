@@ -1,0 +1,17 @@
+node_modules
+.next
+.vercel
+.env
+.env.local
+.env.*.local
+
+artifacts
+cache
+.hardhat-local
+
+dev-*.log
+dev-*.err.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*

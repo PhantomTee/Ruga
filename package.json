@@ -1,0 +1,43 @@
+{
+  "name": "ruga",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "node tests/core.test.cjs",
+    "compile": "hardhat compile",
+    "deploy:arc": "hardhat run scripts/deploy.js --network arcTestnet"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^3.0.3",
+    "@supabase/supabase-js": "^2.87.1",
+    "@tanstack/react-query": "^5.90.12",
+    "canvas-confetti": "^1.9.4",
+    "connectkit": "^1.9.2",
+    "ethers": "^6.16.0",
+    "groq-sdk": "^0.34.0",
+    "next": "14.2.35",
+    "pino-pretty": "^13.1.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "viem": "^2.41.2",
+    "wagmi": "^2.19.4"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.1.2",
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/node": "^20.19.25",
+    "@types/react": "^18.3.27",
+    "@types/react-dom": "^18.3.7",
+    "autoprefixer": "^10.4.22",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.2.35",
+    "hardhat": "2.22.19",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.3"
+  }
+}
