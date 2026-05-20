@@ -17,7 +17,7 @@ const config: Config = {
         }
       },
       fontFamily: {
-        display: ["var(--font-anton)", "Impact", "Arial Narrow", "sans-serif"],
+        display: ["var(--font-permanent-marker)", "Permanent Marker", "Impact", "cursive"],
         mono: ["var(--font-jetbrains)", "JetBrains Mono", "ui-monospace", "monospace"]
       },
       keyframes: {

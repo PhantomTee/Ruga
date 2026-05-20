@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConnectKitProvider } from "connectkit";
 import { useState } from "react";
-import { injected, walletConnect } from "wagmi/connectors";
+import { injected } from "wagmi/connectors";
 import { createConfig, http, WagmiProvider } from "wagmi";
 import { defineChain } from "viem";
 
@@ -25,13 +25,9 @@ const arcTestnet = defineChain({
   testnet: true
 });
 
-const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
-
 const config = createConfig({
   chains: [arcTestnet],
-  connectors: walletConnectProjectId
-    ? [injected(), walletConnect({ projectId: walletConnectProjectId })]
-    : [injected()],
+  connectors: [injected()],
   transports: {
     [arcTestnet.id]: http(process.env.NEXT_PUBLIC_ARC_RPC || "")
   }

@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Anton, JetBrains_Mono } from "next/font/google";
+import { Permanent_Marker, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
-const anton = Anton({
+const permanentMarker = Permanent_Marker({
   weight: "400",
   subsets: ["latin"],
-  variable: "--font-anton",
+  variable: "--font-permanent-marker",
   display: "swap"
 });
 
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${anton.variable} ${jetbrains.variable}`}>
+    <html lang="en" className={`${permanentMarker.variable} ${jetbrains.variable}`}>
       <body>
         <Providers>{children}</Providers>
       </body>
