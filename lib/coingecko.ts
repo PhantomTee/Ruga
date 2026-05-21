@@ -52,6 +52,42 @@ export function scaleUsd(price: number) {
   return BigInt(Math.round(price * PRICE_SCALE));
 }
 
+/**
+ * Price fallback when a token isn't listed on CoinGecko.
+ * Searches DexScreener by symbol and returns the USD price
+ * from the most-liquid matching pair.
+ */
+export async function lookupPriceFromDex(symbol: string): Promise<{ price: number; name: string } | null> {
+  try {
+    const resp = await fetch(
+      `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(symbol)}`,
+      {
+        headers: { accept: "application/json" },
+        signal: AbortSignal.timeout(8_000)
+      }
+    );
+    if (!resp.ok) return null;
+    const data = await resp.json() as {
+      pairs?: Array<{
+        baseToken: { symbol: string; name: string };
+        priceUsd?: string;
+        liquidity?: { usd?: number };
+      }>;
+    };
+    const upper = symbol.toUpperCase();
+    const matching = (data.pairs ?? [])
+      .filter((p) => p.baseToken.symbol.toUpperCase() === upper && Number(p.priceUsd) > 0)
+      .sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0));
+    if (!matching.length) return null;
+    return {
+      price: Number(matching[0].priceUsd),
+      name: matching[0].baseToken.name || symbol
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getMarketChart(coingeckoId: string) {
   const response = await cgFetch(
     `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(coingeckoId)}/market_chart?vs_currency=usd&days=7`,

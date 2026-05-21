@@ -105,21 +105,44 @@ export type DexNewListing = {
  * Proactive market seeding — fetches brand-new DexScreener listings with
  * suspicious risk profiles (tiny liquidity vs FDV, first-hour volume spike)
  * so there are always markets to bet on, even before a rug happens.
+ *
+ * Sources tried in order:
+ *   1. /token-profiles/latest/v1  (newest token profiles)
+ *   2. /token-boosts/latest/v1    (recently boosted / promoted tokens — high rug risk)
  */
 export async function fetchDexScreenerNewListings(): Promise<DexNewListing[]> {
   const results: DexNewListing[] = [];
 
+  // Collect addresses to check from both endpoints
+  const profileAddresses: TokenProfile[] = [];
+
   const profiles = await dsGet<TokenProfile[]>("/token-profiles/latest/v1");
-  if (!profiles?.length) return results;
+  if (profiles?.length) profileAddresses.push(...profiles.slice(0, 50));
 
-  // Shuffle so we don't always check the same top-N
-  const shuffled = profiles
-    .slice(0, 50)
+  // Boosted tokens: recently promoted — heavy spend on promotion is a classic rug setup
+  type BoostEntry = { tokenAddress: string; chainId: string };
+  const boosts = await dsGet<BoostEntry[]>("/token-boosts/latest/v1");
+  if (boosts?.length) {
+    for (const b of boosts.slice(0, 20)) {
+      profileAddresses.push({ chainId: b.chainId, tokenAddress: b.tokenAddress });
+    }
+  }
+
+  if (!profileAddresses.length) return results;
+
+  // Deduplicate by address and shuffle
+  const seen = new Set<string>();
+  const toCheck = profileAddresses
+    .filter((p) => {
+      if (seen.has(p.tokenAddress)) return false;
+      seen.add(p.tokenAddress);
+      return true;
+    })
     .sort(() => Math.random() - 0.5)
-    .slice(0, 25);
+    .slice(0, 30);
 
-  for (const profile of shuffled) {
-    if (results.length >= 5) break; // candidates pool cap
+  for (const profile of toCheck) {
+    if (results.length >= 5) break;
     try {
       await new Promise((r) => setTimeout(r, 200));
 
@@ -138,19 +161,19 @@ export async function fetchDexScreenerNewListings(): Promise<DexNewListing[]> {
       const fdv = pair.fdv ?? 0;
       const priceChange24h = pair.priceChange?.h24 ?? 0;
 
-      // Must have a real price and some trading activity
-      if (priceUsd <= 0 || volume24h < 500 || liquidity < 1_000) continue;
+      // Must have a real price and minimal trading activity (loosened from before)
+      if (priceUsd <= 0 || volume24h < 100 || liquidity < 500) continue;
 
-      // Not already in freefall (that's the rug detector's job)
-      if (priceChange24h < -50) continue;
-
-      // Risky profile: very low liquidity-to-FDV ratio OR tiny absolute liquidity
-      const lowLiqRatio = fdv > 0 && liquidity / fdv < 0.03;
-      const tinyLiq = liquidity < 30_000;
-      if (!lowLiqRatio && !tinyLiq) continue;
+      // Not already in total freefall (that's the rug detector's job)
+      if (priceChange24h < -70) continue;
 
       const symbol = pair.baseToken.symbol.toUpperCase().trim();
       if (!symbol || symbol.length < 2 || symbol.length > 12) continue;
+
+      // Risky profile: low liquidity-to-FDV ratio OR tiny absolute liquidity
+      const lowLiqRatio = fdv > 0 && liquidity / fdv < 0.05;
+      const tinyLiq = liquidity < 50_000;
+      if (!lowLiqRatio && !tinyLiq) continue;
 
       const reasons: string[] = [];
       if (lowLiqRatio) reasons.push(`only ${((liquidity / fdv) * 100).toFixed(1)}% of FDV is liquid`);

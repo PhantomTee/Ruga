@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertAgentAuthorized } from "@/lib/agent-auth";
 import { createOnChainMarket } from "@/lib/chain";
-import { getUsdPrice, lookupCoin, scaleUsd } from "@/lib/coingecko";
+import { getUsdPrice, lookupCoin, lookupPriceFromDex, scaleUsd } from "@/lib/coingecko";
 import { fetchCommitDetail, fetchCommits, extractBlacklistSymbols, extractPatch } from "@/lib/github";
 import { validateRugSignal, validateMultiSourceSignal } from "@/lib/groq";
 import { gatherExternalSignals } from "@/lib/signals";
@@ -15,6 +15,26 @@ const COMMUNITY_REPOS = ["freqtrade/freqtrade-strategies"];
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+/** Resolve price + metadata for a symbol, trying CoinGecko first then DexScreener. */
+async function resolvePrice(symbol: string): Promise<{ priceScaled: bigint; coinId: string | null; coinName: string } | null> {
+  // Try CoinGecko first (preferred — gives us a stable coingecko_id for price charts)
+  try {
+    const coin = await lookupCoin(symbol);
+    if (coin) {
+      const price = await getUsdPrice(coin.id);
+      return { priceScaled: scaleUsd(price), coinId: coin.id, coinName: coin.name };
+    }
+  } catch { /* fall through */ }
+
+  // Fallback: DexScreener search by symbol — works for obscure / newly listed tokens
+  const dex = await lookupPriceFromDex(symbol).catch(() => null);
+  if (dex && dex.price > 0) {
+    return { priceScaled: scaleUsd(dex.price), coinId: null, coinName: dex.name };
+  }
+
+  return null; // truly unknown token — skip
+}
 
 async function scan(request: NextRequest) {
   try {
@@ -75,17 +95,14 @@ async function scan(request: NextRequest) {
           const { data: existing } = await supabase.from("markets").select("id").eq("token_symbol", symbol).maybeSingle();
           if (existing) continue;
 
-          const coin = await lookupCoin(symbol);
-          if (!coin) continue;
-
-          const price = await getUsdPrice(coin.id);
-          const priceScaled = scaleUsd(price);
+          const resolved = await resolvePrice(symbol).catch(() => null);
+          if (!resolved) continue;
 
           const verdict = await validateRugSignal({ symbol, message, diff }).catch(() => null);
           if (!verdict || !verdict.legitimate || verdict.confidenceScore <= 70) continue;
 
           const created = await createAndInsertMarket(supabase, {
-            symbol, coinId: coin.id, coinName: coin.name, priceScaled,
+            symbol, ...resolved,
             reasoning: verdict.reasoning, confidence: verdict.confidenceScore,
             commitSha: sha, commitMessage: message
           });
@@ -113,18 +130,15 @@ async function scan(request: NextRequest) {
         const { data: existing } = await supabase.from("markets").select("id").eq("token_symbol", signal.symbol).maybeSingle();
         if (existing) continue;
 
-        const coin = await lookupCoin(signal.symbol);
-        if (!coin) continue;
-
-        const price = await getUsdPrice(coin.id);
-        const priceScaled = scaleUsd(price);
+        const resolved = await resolvePrice(signal.symbol).catch(() => null);
+        if (!resolved) continue;
 
         const minConfidence = signal.sources.length >= 2 ? 55 : 70;
         const verdict = await validateMultiSourceSignal({ symbol: signal.symbol, sources: signal.sources, reasons: signal.reasons }).catch(() => null);
         if (!verdict || !verdict.legitimate || verdict.confidenceScore < minConfidence) continue;
 
         const created = await createAndInsertMarket(supabase, {
-          symbol: signal.symbol, coinId: coin.id, coinName: coin.name, priceScaled,
+          symbol: signal.symbol, ...resolved,
           reasoning: verdict.reasoning, confidence: verdict.confidenceScore,
           commitSha: null, commitMessage: signal.reasons[0] ?? ""
         });
@@ -147,8 +161,11 @@ async function scan(request: NextRequest) {
         const { data: existing } = await supabase.from("markets").select("id").eq("token_symbol", listing.symbol).maybeSingle();
         if (existing) continue;
 
+        // CoinGecko preferred, falls back to the price DexScreener already gave us
         const coin = await lookupCoin(listing.symbol).catch(() => null);
-        const priceUsd = coin ? await getUsdPrice(coin.id).catch(() => listing.priceUsd) : listing.priceUsd;
+        const priceUsd = coin
+          ? await getUsdPrice(coin.id).catch(() => listing.priceUsd)
+          : listing.priceUsd;
         if (priceUsd <= 0) continue;
         const priceScaled = scaleUsd(priceUsd);
 
@@ -160,9 +177,14 @@ async function scan(request: NextRequest) {
         if (!verdict || !verdict.legitimate || verdict.confidenceScore < 45) continue;
 
         const created = await createAndInsertMarket(supabase, {
-          symbol: listing.symbol, coinId: coin?.id ?? null, coinName: coin?.name ?? listing.name,
-          priceScaled, reasoning: verdict.reasoning, confidence: verdict.confidenceScore,
-          commitSha: null, commitMessage: listing.reason
+          symbol: listing.symbol,
+          coinId: coin?.id ?? null,
+          coinName: coin?.name ?? listing.name,
+          priceScaled,
+          reasoning: verdict.reasoning,
+          confidence: verdict.confidenceScore,
+          commitSha: null,
+          commitMessage: listing.reason
         });
         if (created) { marketsCreated++; proactiveCreated++; }
 
