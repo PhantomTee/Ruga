@@ -71,7 +71,7 @@ export function CreateMarketModal({ onClose }: { onClose: () => void }) {
                   disabled={state === "loading"}
                 />
                 <p className="font-mono text-xs text-black/40 mt-1">
-                  Think it'll rug? Flag it and a 7-day prediction market opens instantly.
+                  Think it&apos;ll rug? Flag it and a 7-day prediction market opens instantly.
                 </p>
               </div>
 

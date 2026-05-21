@@ -116,7 +116,7 @@ export function PortfolioClient() {
           <div className="border-2 border-black bg-white p-10 max-w-lg">
             <div className="font-display text-4xl text-black mb-3">NO BETS YET.</div>
             <p className="font-mono text-sm text-black/60 mb-6">
-              You haven't placed any bets yet. Find a market and take a position.
+              You haven&apos;t placed any bets yet. Find a market and take a position.
             </p>
             <Link
               href="/markets"
