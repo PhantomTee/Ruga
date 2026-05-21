@@ -7,26 +7,16 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const supabase = getSupabaseAdmin();
-    // Run both a count query and a full select to isolate the issue
-    const [countResult, dataResult] = await Promise.all([
-      supabase.from("markets").select("id", { count: "exact", head: true }),
-      supabase.from("markets").select("*").order("created_at", { ascending: false })
-    ]);
-
-    // Return debug info so we can see exactly what Supabase reports
-    if (countResult.error || dataResult.error) {
-      return NextResponse.json(
-        {
-          markets: [],
-          _countError: countResult.error?.message,
-          _dataError: dataResult.error?.message,
-        },
-        { headers: { "Cache-Control": "no-store" } }
-      );
-    }
-
+    // Use a date floor so the query never does an unrestricted full table scan —
+    // Supabase RLS can block unfiltered SELECTs even for the service role in some configs.
+    const { data, error } = await supabase
+      .from("markets")
+      .select("*")
+      .gte("created_at", "2020-01-01T00:00:00Z")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
     return NextResponse.json(
-      { markets: dataResult.data ?? [], _count: countResult.count },
+      { markets: data ?? [] },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {

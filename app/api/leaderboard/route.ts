@@ -7,12 +7,13 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const supabase = getSupabaseAdmin();
-    const { data: bets, error } = await supabase.from("bets").select("wallet_address,amount,side,market_id");
+    const { data: bets, error } = await supabase.from("bets").select("wallet_address,amount,side,market_id").gte("created_at", "2020-01-01T00:00:00Z");
     if (error) throw error;
 
     const { data: markets, error: marketError } = await supabase
       .from("markets")
-      .select("id,resolved,outcome,yes_pool,no_pool");
+      .select("id,resolved,outcome,yes_pool,no_pool")
+      .gte("created_at", "2020-01-01T00:00:00Z");
     if (marketError) throw marketError;
 
     const marketMap = new Map((markets || []).map((market) => [String(market.id), market]));

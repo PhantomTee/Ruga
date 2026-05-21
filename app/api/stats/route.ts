@@ -9,8 +9,8 @@ export async function GET() {
     const supabase = getSupabaseAdmin();
 
     const [marketsResult, betsResult] = await Promise.all([
-      supabase.from("markets").select("yes_pool,no_pool"),
-      supabase.from("bets").select("wallet_address")
+      supabase.from("markets").select("yes_pool,no_pool").gte("created_at", "2020-01-01T00:00:00Z"),
+      supabase.from("bets").select("wallet_address").gte("created_at", "2020-01-01T00:00:00Z")
     ]);
 
     if (marketsResult.error) throw marketsResult.error;
