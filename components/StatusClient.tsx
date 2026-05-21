@@ -1,12 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Nav } from "./Nav";
+import { CONTRACT_ADDRESS } from "@/lib/constants";
 
 type StatusData = {
   lastScanTime: string | null;
   nextScanTime: string | null;
   commitsScannedToday: number;
+};
+
+type ResolvedMarket = {
+  id: number;
+  on_chain_id: number;
+  token_symbol: string;
+  outcome: boolean | null;
+  resolves_at: string | null;
 };
 
 function LoadingDots() {
@@ -40,12 +50,25 @@ function timeUntil(iso: string | null) {
 export function StatusClient() {
   const [status, setStatus] = useState<StatusData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [resolved, setResolved] = useState<ResolvedMarket[]>([]);
 
   useEffect(() => {
     fetch("/api/agent/status")
       .then((r) => r.json())
       .then((d) => setStatus(d))
       .finally(() => setLoading(false));
+
+    // Fetch recently resolved markets for proof section
+    fetch("/api/markets")
+      .then((r) => r.json())
+      .then((d) => {
+        const all = d.markets || [];
+        const recent = all
+          .filter((m: ResolvedMarket & { resolved: boolean }) => m.resolved)
+          .slice(0, 5);
+        setResolved(recent);
+      })
+      .catch(() => {});
 
     const t = setInterval(() => {
       fetch("/api/agent/status")
@@ -71,10 +94,54 @@ export function StatusClient() {
         ) : !status ? (
           <p className="font-mono text-sm text-black">Failed to load agent status.</p>
         ) : (
-          <div className="space-y-2 max-w-2xl">
-            <Metric label="Last Scan" value={timeAgo(status.lastScanTime)} />
-            <Metric label="Next Scan" value={timeUntil(status.nextScanTime)} />
-            <Metric label="Total Scans Today" value={String(status.commitsScannedToday)} />
+          <div className="space-y-8 max-w-2xl">
+            {/* Core metrics */}
+            <div className="space-y-2">
+              <Metric label="Last Scan" value={timeAgo(status.lastScanTime)} />
+              <Metric label="Next Scan" value={timeUntil(status.nextScanTime)} />
+              <Metric label="Total Scans Today" value={String(status.commitsScannedToday)} />
+            </div>
+
+            {/* Resolution proof */}
+            {resolved.length > 0 && (
+              <div>
+                <div className="font-mono text-xs text-black/50 uppercase tracking-widest mb-3">
+                  On-Chain Resolution Proof
+                </div>
+                <div className="border-2 border-black bg-white divide-y-2 divide-black">
+                  {resolved.map((m) => (
+                    <div key={m.id} className="flex items-center justify-between px-5 py-3 gap-3">
+                      <Link
+                        href={`/market/${m.id}`}
+                        className="font-display text-2xl text-black hover:text-ruga-red transition-colors"
+                      >
+                        ${m.token_symbol}
+                      </Link>
+                      <div className={`font-mono text-xs font-bold px-2 py-1 border ${
+                        m.outcome
+                          ? "border-ruga-red text-ruga-red"
+                          : "border-black text-black"
+                      }`}>
+                        {m.outcome ? "RUGGED" : "SURVIVED"}
+                      </div>
+                      <div className="font-mono text-xs text-black/40">
+                        Market #{m.on_chain_id ?? m.id}
+                      </div>
+                      {CONTRACT_ADDRESS && (
+                        <a
+                          href={`https://explorer.testnet.arc.network/address/${CONTRACT_ADDRESS}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-xs text-black/40 hover:text-black underline underline-offset-2 shrink-0"
+                        >
+                          verify ↗
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

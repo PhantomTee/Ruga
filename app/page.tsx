@@ -44,7 +44,7 @@ function RugMascot() {
   );
 }
 
-type Stats = { totalMarkets: number; totalWagered: number; uniqueBettors: number };
+type Stats = { totalMarkets: number; totalWagered: number; uniqueBettors: number; totalBets: number };
 
 export default function LandingPage() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -69,6 +69,9 @@ export default function LandingPage() {
         <div className="border-b-2 border-black bg-black px-6 py-2 flex flex-wrap gap-x-8 gap-y-1 items-center">
           <span className="font-mono text-xs text-white/60">
             <span className="text-white font-bold">{stats.totalMarkets}</span> MARKETS
+          </span>
+          <span className="font-mono text-xs text-white/60">
+            <span className="text-white font-bold">{stats.totalBets}</span> BETS PLACED
           </span>
           <span className="font-mono text-xs text-white/60">
             <span className="text-white font-bold">${stats.totalWagered.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span> WAGERED

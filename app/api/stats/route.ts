@@ -10,7 +10,7 @@ export async function GET() {
 
     const [marketsResult, betsResult] = await Promise.all([
       supabase.from("markets").select("yes_pool,no_pool").gte("created_at", "2020-01-01T00:00:00Z"),
-      supabase.from("bets").select("wallet_address").gte("created_at", "2020-01-01T00:00:00Z")
+      supabase.from("bets").select("wallet_address,amount").gte("created_at", "2020-01-01T00:00:00Z")
     ]);
 
     if (marketsResult.error) throw marketsResult.error;
@@ -24,11 +24,13 @@ export async function GET() {
     }, 0);
 
     const uniqueBettors = new Set(bets.map((b) => b.wallet_address.toLowerCase())).size;
+    const totalBets = bets.length;
 
     return NextResponse.json({
       totalMarkets: markets.length,
       totalWagered: Math.round(totalWagered * 100) / 100,
-      uniqueBettors
+      uniqueBettors,
+      totalBets,
     });
   } catch (error) {
     return NextResponse.json({ error: toMessage(error) }, { status: 500 });

@@ -31,7 +31,10 @@ export function MarketCard({ market, onRefresh }: { market: Market; onRefresh: (
           <div className="font-display text-5xl leading-none text-black truncate">
             {marketSymbol(market)}
           </div>
-          <div className="font-mono text-xs text-black/40 uppercase mt-1">rug or hodl?</div>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="font-mono text-xs text-black/40 uppercase">rug or hodl?</div>
+            <RiskBadge confidence={market.groq_confidence} />
+          </div>
         </Link>
         <div className="font-mono text-xs text-right shrink-0 pt-1">
           {market.resolved ? (
@@ -39,7 +42,9 @@ export function MarketCard({ market, onRefresh }: { market: Market; onRefresh: (
               {market.outcome ? "RUGGED" : "SURVIVED"}
             </span>
           ) : (
-            <span className="text-black/50">{formatDuration(remaining)}</span>
+            <span className={`tabular-nums ${remaining < 86400 ? "text-ruga-red font-bold" : "text-black/50"}`}>
+              {formatDuration(remaining)}
+            </span>
           )}
         </div>
       </div>
@@ -109,5 +114,20 @@ export function MarketCard({ market, onRefresh }: { market: Market; onRefresh: (
         />
       )}
     </article>
+  );
+}
+
+function RiskBadge({ confidence }: { confidence?: number | null }) {
+  if (confidence == null) return null;
+  const level = confidence >= 70 ? "HIGH" : confidence >= 50 ? "MED" : "LOW";
+  const cls = confidence >= 70
+    ? "border-ruga-red text-ruga-red"
+    : confidence >= 50
+    ? "border-amber-500 text-amber-600"
+    : "border-black/30 text-black/40";
+  return (
+    <span className={`font-mono text-[10px] border px-1.5 py-0.5 uppercase tracking-wide ${cls}`}>
+      {level} RISK
+    </span>
   );
 }

@@ -35,6 +35,8 @@ export function Nav() {
           {/* Desktop links */}
           <div className="hidden sm:flex items-center gap-8">
             {navLink("/markets", "Markets")}
+            {navLink("/activity", "Activity")}
+            {navLink("/portfolio", "Portfolio")}
             {navLink("/leaderboard", "Leaderboard")}
             {navLink("/status", "Agent")}
           </div>
@@ -69,6 +71,8 @@ export function Nav() {
         {open && (
           <div className="sm:hidden border-t-2 border-black bg-ruga-red px-6 py-4 flex flex-col gap-4">
             {navLink("/markets", "Markets")}
+            {navLink("/activity", "Activity")}
+            {navLink("/portfolio", "Portfolio")}
             {navLink("/leaderboard", "Leaderboard")}
             {navLink("/status", "Agent")}
           </div>

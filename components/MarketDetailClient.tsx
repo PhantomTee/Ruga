@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { BrowserProvider, Contract, type Eip1193Provider } from "ethers";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAccount, useWalletClient } from "wagmi";
 import { useModal } from "connectkit";
 import { RUGA_MARKET_ABI } from "@/lib/abi";
@@ -25,6 +25,8 @@ export function MarketDetailClient({ id }: { id: string }) {
   const [claiming, setClaiming] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [claimTx, setClaimTx] = useState<string | null>(null);
+  const [showResolution, setShowResolution] = useState(false);
+  const animShown = useRef(false);
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { setOpen: openConnectKit } = useModal();
@@ -42,6 +44,18 @@ export function MarketDetailClient({ id }: { id: string }) {
   useEffect(() => {
     load().catch((err) => setError(err instanceof Error ? err.message : "Failed to load market"));
   }, [load]);
+
+  // Show resolution animation once per market per session
+  useEffect(() => {
+    if (!market?.resolved || animShown.current) return;
+    const key = `ruga_resolved_${id}`;
+    if (sessionStorage.getItem(key)) return;
+    animShown.current = true;
+    sessionStorage.setItem(key, "1");
+    setShowResolution(true);
+    const t = setTimeout(() => setShowResolution(false), 3500);
+    return () => clearTimeout(t);
+  }, [market, id]);
 
   if (error) {
     return (
@@ -129,6 +143,28 @@ export function MarketDetailClient({ id }: { id: string }) {
 
   return (
     <div className="min-h-screen bg-ruga-red">
+      {/* Resolution animation overlay */}
+      {showResolution && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center cursor-pointer"
+          style={{ background: market?.outcome ? "#FF1515" : "#000" }}
+          onClick={() => setShowResolution(false)}
+        >
+          <div
+            className="font-display leading-none text-center animate-bounce"
+            style={{ fontSize: "clamp(6rem, 25vw, 18rem)", color: market?.outcome ? "#000" : "#FF1515" }}
+          >
+            {market?.outcome ? "RUGGED" : "SURVIVED"}
+          </div>
+          <div className="font-mono text-sm mt-6 opacity-60" style={{ color: market?.outcome ? "#000" : "#fff" }}>
+            {market?.outcome ? "💀 this token is dead" : "✓ still breathing"}
+          </div>
+          <div className="font-mono text-xs mt-4 opacity-40" style={{ color: market?.outcome ? "#000" : "#fff" }}>
+            tap to continue
+          </div>
+        </div>
+      )}
+
       <Nav />
 
       <div className="px-6 py-8 grid gap-6 lg:grid-cols-[1fr_340px]">
@@ -165,6 +201,37 @@ export function MarketDetailClient({ id }: { id: string }) {
           <div className="border-2 border-black bg-white p-4">
             <PriceChart prices={prices} />
           </div>
+
+          {/* Rug Score */}
+          {market.groq_confidence != null && (
+            <div className="border-2 border-black bg-white p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="font-display text-xl text-black">RUG SCORE</div>
+                <div className={`font-mono text-xs px-2 py-1 border ${
+                  market.groq_confidence >= 70
+                    ? "border-ruga-red text-ruga-red"
+                    : market.groq_confidence >= 50
+                    ? "border-amber-500 text-amber-600"
+                    : "border-black/30 text-black/40"
+                }`}>
+                  {market.groq_confidence >= 70 ? "HIGH RISK" : market.groq_confidence >= 50 ? "MED RISK" : "LOW RISK"}
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex-1 h-4 bg-black/10 border border-black/20">
+                  <div
+                    className="h-full transition-all"
+                    style={{
+                      width: `${market.groq_confidence}%`,
+                      background: market.groq_confidence >= 70 ? "#FF1515" : market.groq_confidence >= 50 ? "#f59e0b" : "#000"
+                    }}
+                  />
+                </div>
+                <div className="font-display text-3xl text-black w-16 text-right">{market.groq_confidence}</div>
+              </div>
+              <div className="font-mono text-xs text-black/40 mt-1">AI confidence score / 100</div>
+            </div>
+          )}
 
           {/* Groq reasoning */}
           <div className="border-2 border-black bg-white p-5">
