@@ -180,7 +180,10 @@ async function scan(request: NextRequest) {
           reasons: [listing.reason]
         }).catch((e) => { skipReasons.push(`${listing.symbol}: groq error ${toMessage(e)}`); return null; });
         if (!verdict) continue;
-        if (!verdict.legitimate || verdict.confidenceScore < 45) { skipReasons.push(`${listing.symbol}: groq reject (legit=${verdict.legitimate} conf=${verdict.confidenceScore})`); continue; }
+        // For proactive listings: accept if Groq gives any non-trivial confidence, OR
+        // if it explicitly says it's worth a market (legitimate=true)
+        const proactivePass = verdict.legitimate && verdict.confidenceScore >= 30;
+        if (!proactivePass) { skipReasons.push(`${listing.symbol}: groq reject (legit=${verdict.legitimate} conf=${verdict.confidenceScore})`); continue; }
 
         const created = await createAndInsertMarket(supabase, {
           symbol: listing.symbol,

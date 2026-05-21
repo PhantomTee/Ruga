@@ -80,7 +80,7 @@ export async function validateMultiSourceSignal(input: {
       {
         role: "system",
         content:
-          "You are a crypto rugpull detection AI. Given a token and signals from external detection sources, assess whether it represents real rugpull risk within 7 days. Reply with JSON: { legitimate: boolean, reasoning: string, confidenceScore: number 0-100 }"
+          "You are a crypto rugpull detection AI. Given a token and signals from external detection sources, decide whether to open a prediction market for it. Reply with JSON: { legitimate: boolean (SET TRUE if the signals indicate real rugpull risk and a market should be opened; SET FALSE only if the signals are clearly noise or a false positive), reasoning: string, confidenceScore: number 0-100 (confidence that this token will lose 80%+ of value within 7 days) }"
       },
       {
         role: "user",
