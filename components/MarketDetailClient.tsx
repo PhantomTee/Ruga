@@ -4,6 +4,7 @@ import Link from "next/link";
 import { BrowserProvider, Contract, type Eip1193Provider } from "ethers";
 import { useCallback, useEffect, useState } from "react";
 import { useAccount, useWalletClient } from "wagmi";
+import { useModal } from "connectkit";
 import { RUGA_MARKET_ABI } from "@/lib/abi";
 import { CONTRACT_ADDRESS } from "@/lib/constants";
 import { formatUsd, truncateAddress } from "@/lib/format";
@@ -11,6 +12,7 @@ import { unscaleUsd } from "@/lib/price";
 import { BetModal } from "./BetModal";
 import { Nav } from "./Nav";
 import { PriceChart } from "./PriceChart";
+import { useToast } from "./Toast";
 import type { Bet, Market } from "./types";
 import { coingeckoId, marketName, marketSymbol, noPool, yesPool } from "./types";
 
@@ -25,6 +27,8 @@ export function MarketDetailClient({ id }: { id: string }) {
   const [claimTx, setClaimTx] = useState<string | null>(null);
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const { setOpen: openConnectKit } = useModal();
+  const { show: showToast } = useToast();
 
   const load = useCallback(async () => {
     const response = await fetch(`/api/markets/${id}`, { cache: "no-store" });
@@ -61,11 +65,49 @@ export function MarketDetailClient({ id }: { id: string }) {
   const final = unscaleUsd(market.final_price);
   const change = final && start ? ((final - start) / start) * 100 : null;
 
+  // My bets on this market
+  const myBets = address
+    ? bets.filter((b) => b.wallet_address.toLowerCase() === address.toLowerCase())
+    : [];
+
+  // Estimated winnings calc (for resolved markets)
+  function calcEstimatedPayout(userSide: "yes" | "no", stake: number): number {
+    if (!market) return 0;
+    const winPool = userSide === "yes" ? yesPool(market) : noPool(market);
+    const losePool = userSide === "yes" ? noPool(market) : yesPool(market);
+    if (winPool <= 0) return stake;
+    const gross = stake + (losePool * stake) / winPool;
+    return gross * 0.98; // 2% fee
+  }
+
+  const myWinningBets = myBets.filter(
+    (b) => market.resolved && ((market.outcome && b.side === "yes") || (!market.outcome && b.side === "no"))
+  );
+  const myTotalStake = myWinningBets.reduce((s, b) => s + Number(b.amount), 0);
+  const myEstimatedPayout =
+    myWinningBets.length > 0
+      ? calcEstimatedPayout(myWinningBets[0].side as "yes" | "no", myTotalStake)
+      : 0;
+
+  function shareMarket() {
+    const sym = marketSymbol(market!);
+    const side = !market!.resolved
+      ? `Will $${sym} rug in 7 days? Bet YES or NO on Ruga.`
+      : market!.outcome
+      ? `$${sym} RUGGED. Did you call it on Ruga?`
+      : `$${sym} SURVIVED. Did you call it on Ruga?`;
+    const url = `https://ruga-app.vercel.app/market/${id}`;
+    window.open(
+      `https://twitter.com/intent/tweet?text=${encodeURIComponent(side)}&url=${encodeURIComponent(url)}`,
+      "_blank"
+    );
+  }
+
   async function claimWinnings() {
     try {
       setClaimError(null);
       setClaimTx(null);
-      if (!address) throw new Error("Connect a wallet before claiming");
+      if (!address) { openConnectKit(true); return; }
       if (!walletClient) throw new Error("No active wallet client found");
       if (!CONTRACT_ADDRESS) throw new Error("NEXT_PUBLIC_CONTRACT_ADDRESS is not configured");
       if (!market) throw new Error("Market not loaded");
@@ -76,6 +118,7 @@ export function MarketDetailClient({ id }: { id: string }) {
       const tx = await ruga.claimWinnings(market.on_chain_id || market.id);
       const receipt = await tx.wait();
       setClaimTx(receipt.hash);
+      showToast(`Winnings claimed! ~${myEstimatedPayout.toFixed(2)} USDC ✓`);
     } catch (err) {
       const rejected = JSON.stringify(err).includes("4001");
       setClaimError(rejected ? "Claim rejected in wallet" : err instanceof Error ? err.message : "Claim failed");
@@ -93,7 +136,15 @@ export function MarketDetailClient({ id }: { id: string }) {
         <div className="space-y-4">
           {/* Title block */}
           <div className="border-2 border-black bg-white p-6">
-            <div className="font-mono text-xs text-black/40 uppercase">Market #{market.id}</div>
+            <div className="flex items-start justify-between gap-2">
+              <div className="font-mono text-xs text-black/40 uppercase">Market #{market.id}</div>
+              <button
+                onClick={shareMarket}
+                className="font-mono text-xs text-black/40 hover:text-black transition-colors underline underline-offset-2 shrink-0"
+              >
+                share ↗
+              </button>
+            </div>
             <h1 className="font-display leading-none text-black mt-1" style={{ fontSize: "clamp(4rem, 10vw, 8rem)" }}>
               {marketSymbol(market)}
             </h1>
@@ -138,13 +189,19 @@ export function MarketDetailClient({ id }: { id: string }) {
             {!market.resolved ? (
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => setSide("yes")}
+                  onClick={() => {
+                    if (!address) { openConnectKit(true); return; }
+                    setSide("yes");
+                  }}
                   className="border-2 border-black bg-black text-white py-4 font-display text-2xl hover:bg-ruga-red hover:text-black transition-colors"
                 >
                   YES
                 </button>
                 <button
-                  onClick={() => setSide("no")}
+                  onClick={() => {
+                    if (!address) { openConnectKit(true); return; }
+                    setSide("no");
+                  }}
                   className="border-2 border-black bg-white text-black py-4 font-display text-2xl hover:bg-black hover:text-white transition-colors"
                 >
                   NO
@@ -152,6 +209,16 @@ export function MarketDetailClient({ id }: { id: string }) {
               </div>
             ) : (
               <div>
+                {/* Estimated payout */}
+                {myEstimatedPayout > 0 && (
+                  <div className="border-2 border-black bg-ruga-red/10 p-4 mb-3">
+                    <div className="font-mono text-xs text-black/50 uppercase mb-1">Your estimated payout</div>
+                    <div className="font-display text-3xl text-black">
+                      ~{myEstimatedPayout.toFixed(2)} USDC
+                    </div>
+                    <div className="font-mono text-xs text-black/40 mt-1">after 2% protocol fee</div>
+                  </div>
+                )}
                 <button
                   onClick={claimWinnings}
                   disabled={claiming}
@@ -160,7 +227,26 @@ export function MarketDetailClient({ id }: { id: string }) {
                   {claiming ? "CLAIMING…" : "CLAIM WINNINGS"}
                 </button>
                 {claimTx && <div className="mt-3 font-mono text-xs text-black/50 break-all">TX: {claimTx}</div>}
-                {claimError && <div className="mt-3 border-2 border-black bg-ruga-red/10 p-3 font-mono text-xs text-black">{claimError}</div>}
+                {claimError && (
+                  <div className="mt-3 border-2 border-black bg-ruga-red/10 p-3 font-mono text-xs text-black">
+                    {claimError}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* My bets on this market */}
+            {myBets.length > 0 && (
+              <div className="mt-4 pt-4 border-t-2 border-black">
+                <div className="font-mono text-xs text-black/40 uppercase mb-2">My bets</div>
+                {myBets.map((b) => (
+                  <div key={b.id} className="flex justify-between font-mono text-xs text-black">
+                    <span className={b.side === "yes" ? "font-bold" : "text-ruga-red font-bold"}>
+                      {b.side.toUpperCase()}
+                    </span>
+                    <span>{formatUsd(b.amount)} USDC</span>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -192,15 +278,23 @@ export function MarketDetailClient({ id }: { id: string }) {
           <div className="border-2 border-black bg-white">
             <div className="border-b-2 border-black px-5 py-3 font-display text-xl text-black">BET HISTORY</div>
             <div className="max-h-96 overflow-y-auto divide-y-2 divide-black">
-              {bets.map((bet) => (
-                <div key={bet.id} className="flex items-center justify-between px-5 py-3 gap-3">
-                  <span className="font-mono text-xs text-black/50 truncate">{truncateAddress(bet.wallet_address)}</span>
-                  <span className={`font-display text-lg ${bet.side === "yes" ? "text-black" : "text-ruga-red"}`}>
-                    {bet.side.toUpperCase()}
-                  </span>
-                  <span className="font-mono text-xs text-black shrink-0">{formatUsd(bet.amount)} USDC</span>
-                </div>
-              ))}
+              {bets.length === 0 ? (
+                <div className="px-5 py-4 font-mono text-xs text-black/40">No bets yet. Be first.</div>
+              ) : (
+                bets.map((bet) => (
+                  <div key={bet.id} className="flex items-center justify-between px-5 py-3 gap-3">
+                    <span className="font-mono text-xs text-black/50 truncate">
+                      {address && bet.wallet_address.toLowerCase() === address.toLowerCase()
+                        ? <span className="text-black font-bold">you</span>
+                        : truncateAddress(bet.wallet_address)}
+                    </span>
+                    <span className={`font-display text-lg ${bet.side === "yes" ? "text-black" : "text-ruga-red"}`}>
+                      {bet.side.toUpperCase()}
+                    </span>
+                    <span className="font-mono text-xs text-black shrink-0">{formatUsd(bet.amount)} USDC</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

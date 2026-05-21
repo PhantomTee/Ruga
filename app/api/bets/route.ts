@@ -4,6 +4,25 @@ import { verifyBetTransactionDetails } from "@/lib/chain";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { toMessage } from "@/lib/errors";
 
+export async function GET(request: NextRequest) {
+  try {
+    const wallet = request.nextUrl.searchParams.get("wallet");
+    if (!wallet) return NextResponse.json({ error: "wallet param required" }, { status: 400 });
+
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("bets")
+      .select("*, markets(id, token_symbol, token_name, resolved, outcome, yes_pool, no_pool)")
+      .eq("wallet_address", wallet.toLowerCase())
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return NextResponse.json({ bets: data || [] });
+  } catch (error) {
+    return NextResponse.json({ error: toMessage(error) }, { status: 500 });
+  }
+}
+
 // Integer microdollar arithmetic to avoid float precision loss on USDC amounts
 function addUsdc(a: string | number | null, b: string): string {
   const aMicro = Math.round(Number(a || 0) * 1_000_000);

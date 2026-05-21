@@ -83,6 +83,23 @@ export function MarketCard({ market, onRefresh }: { market: Market; onRefresh: (
         </button>
       </div>
 
+      {/* Share */}
+      <div className="px-4 pb-3 pt-1 flex justify-end">
+        <button
+          onClick={() => {
+            const text = `Will $${marketSymbol(market)} rug within 7 days? I'm betting on Ruga — the AI-powered prediction market for crypto rugs.`;
+            const url = `https://ruga-app.vercel.app/market/${market.id}`;
+            window.open(
+              `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+              "_blank"
+            );
+          }}
+          className="font-mono text-xs text-black/40 hover:text-black transition-colors underline underline-offset-2"
+        >
+          share ↗
+        </button>
+      </div>
+
       {betSide && (
         <BetModal
           market={market}
