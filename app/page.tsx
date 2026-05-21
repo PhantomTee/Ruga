@@ -156,7 +156,7 @@ export default function LandingPage() {
           Arc Testnet · {process.env.NEXT_PUBLIC_CONTRACT_ADDRESS?.slice(0, 10)}…
         </span>
         <span className="font-mono text-xs text-black/50">
-          Signal: iterativv/NostalgiaForInfinity
+          5 detection sources · scans every 5 min
         </span>
       </footer>
     </main>
