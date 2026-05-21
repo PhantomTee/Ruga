@@ -1,5 +1,5 @@
-import { AgentStatusClient } from "@/components/AgentStatusClient";
+import { StatusClient } from "@/components/StatusClient";
 
 export default function AgentPage() {
-  return <AgentStatusClient />;
+  return <StatusClient />;
 }
