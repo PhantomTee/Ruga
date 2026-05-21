@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ConnectKitButton } from "connectkit";
+import { Nav } from "@/components/Nav";
 
 function RugMascot() {
   return (
@@ -58,11 +58,7 @@ export default function LandingPage() {
 
   return (
     <main className="min-h-screen bg-ruga-red flex flex-col">
-      {/* Top bar */}
-      <header className="flex items-center justify-between px-6 py-5 border-b-2 border-black">
-        <span className="font-display text-2xl leading-none">RUGA</span>
-        <ConnectKitButton />
-      </header>
+      <Nav />
 
       {/* Stats bar */}
       {stats && (
