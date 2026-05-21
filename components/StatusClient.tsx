@@ -98,29 +98,6 @@ export function StatusClient() {
               />
             </div>
 
-            {/* Sources */}
-            <div className="border-2 border-black bg-white p-5">
-              <div className="font-display text-xl text-black mb-4">SIGNAL SOURCES</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-xs">
-                {[
-                  { name: "NFI (iterativv)", desc: "GitHub blacklist commits", cadence: "on push" },
-                  { name: "Freqtrade Community", desc: "GitHub blacklist commits", cadence: "on push" },
-                  { name: "RugCheck.xyz", desc: "Solana risk score > 500/1000", cadence: "every 5 min" },
-                  { name: "DexScreener", desc: "Price crash + drained LP pattern", cadence: "every 5 min" },
-                  { name: "GoPlusSecurity", desc: "EVM honeypot / sell-tax enrichment", cadence: "every 5 min" },
-                ].map((src) => (
-                  <div key={src.name} className="flex items-start gap-3 border border-black/10 p-3">
-                    <div className="w-2 h-2 rounded-full bg-black mt-1 shrink-0" />
-                    <div>
-                      <div className="font-bold text-black">{src.name}</div>
-                      <div className="text-black/50">{src.desc}</div>
-                      <div className="text-black/30 mt-0.5">↻ {src.cadence}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Failures */}
             {status.failures > 0 && (
               <div className="border-2 border-black bg-white p-5">

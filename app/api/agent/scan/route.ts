@@ -6,14 +6,12 @@ import { fetchCommitDetail, fetchCommits, extractBlacklistSymbols, extractPatch 
 import { validateRugSignal, validateMultiSourceSignal } from "@/lib/groq";
 import { gatherExternalSignals } from "@/lib/signals";
 import type { AggregatedSignal } from "@/lib/signals";
+import { fetchDexScreenerNewListings } from "@/lib/signals/dexscreener";
 import type { CommitStatus } from "@/lib/agent-status";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { toMessage } from "@/lib/errors";
 
-// Extra community blacklist repos scanned alongside NFI
-const COMMUNITY_REPOS = [
-  "freqtrade/freqtrade-strategies"
-];
+const COMMUNITY_REPOS = ["freqtrade/freqtrade-strategies"];
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -27,20 +25,13 @@ async function scan(request: NextRequest) {
     let marketsCreated = 0;
 
     // ─── 1. NFI + community blacklist repos (GitHub) ─────────────────────────
-    const allRepoCommits: Array<{
-      sha: string;
-      message: string;
-      repo: string;
-      sourceLabel: string;
-    }> = [];
+    const allRepoCommits: Array<{ sha: string; message: string }> = [];
 
-    // Primary NFI repo
     const nfiCommits = await fetchCommits().catch(() => []);
     for (const c of nfiCommits) {
-      allRepoCommits.push({ sha: c.sha, message: c.commit.message, repo: "iterativv/NostalgiaForInfinity", sourceLabel: "nfi" });
+      allRepoCommits.push({ sha: c.sha, message: c.commit.message });
     }
 
-    // Community repos
     for (const repo of COMMUNITY_REPOS) {
       try {
         const resp = await fetch(
@@ -55,26 +46,16 @@ async function scan(request: NextRequest) {
         );
         if (resp.ok) {
           const commits = await resp.json() as Array<{ sha: string; commit: { message: string } }>;
-          for (const c of commits) {
-            allRepoCommits.push({ sha: c.sha, message: c.commit.message, repo, sourceLabel: "freqtrade-community" });
-          }
+          for (const c of commits) allRepoCommits.push({ sha: c.sha, message: c.commit.message });
         }
-      } catch { /* skip failed repo */ }
+      } catch { /* skip */ }
     }
 
-    for (const { sha, message, repo, sourceLabel } of allRepoCommits) {
-      // Atomic claim: skip if already processed
+    for (const { sha, message } of allRepoCommits) {
       const { data: claim, error: claimError } = await supabase
         .from("commits_processed")
         .upsert(
-          {
-            sha,
-            commit_message: message,
-            tokens_found: [],
-            status: "processing",
-            error_message: null,
-            processed_at: new Date().toISOString()
-          },
+          { sha, commit_message: message, tokens_found: [], status: "processing", error_message: null, processed_at: new Date().toISOString() },
           { onConflict: "sha", ignoreDuplicates: true }
         )
         .select("sha,status")
@@ -91,8 +72,7 @@ async function scan(request: NextRequest) {
         let status: CommitStatus = symbols.length > 0 ? "signal_found" : "ignored";
 
         for (const symbol of symbols) {
-          const { data: existing } = await supabase
-            .from("markets").select("id").eq("token_symbol", symbol).maybeSingle();
+          const { data: existing } = await supabase.from("markets").select("id").eq("token_symbol", symbol).maybeSingle();
           if (existing) continue;
 
           const coin = await lookupCoin(symbol);
@@ -105,27 +85,19 @@ async function scan(request: NextRequest) {
           if (!verdict || !verdict.legitimate || verdict.confidenceScore <= 70) continue;
 
           const created = await createAndInsertMarket(supabase, {
-            symbol,
-            coinId: coin.id,
-            coinName: coin.name,
-            priceScaled,
-            reasoning: verdict.reasoning,
-            confidence: verdict.confidenceScore,
-            commitSha: sha,
-            commitMessage: message,
-            signalSources: [sourceLabel]
+            symbol, coinId: coin.id, coinName: coin.name, priceScaled,
+            reasoning: verdict.reasoning, confidence: verdict.confidenceScore,
+            commitSha: sha, commitMessage: message
           });
           if (created) { marketsCreated++; status = "market_created"; }
         }
 
-        await supabase
-          .from("commits_processed")
+        await supabase.from("commits_processed")
           .update({ commit_message: message, tokens_found: symbols, status, error_message: null, processed_at: new Date().toISOString() })
           .eq("sha", sha);
 
       } catch (err) {
-        await supabase
-          .from("commits_processed")
+        await supabase.from("commits_processed")
           .update({ commit_message: message, status: "failed", error_message: toMessage(err), processed_at: new Date().toISOString() })
           .eq("sha", sha);
       }
@@ -138,8 +110,7 @@ async function scan(request: NextRequest) {
       try {
         tokensScanned.push(signal.symbol);
 
-        const { data: existing } = await supabase
-          .from("markets").select("id").eq("token_symbol", signal.symbol).maybeSingle();
+        const { data: existing } = await supabase.from("markets").select("id").eq("token_symbol", signal.symbol).maybeSingle();
         if (existing) continue;
 
         const coin = await lookupCoin(signal.symbol);
@@ -148,27 +119,14 @@ async function scan(request: NextRequest) {
         const price = await getUsdPrice(coin.id);
         const priceScaled = scaleUsd(price);
 
-        // Multi-source confirmation lowers the required Groq threshold
         const minConfidence = signal.sources.length >= 2 ? 55 : 70;
-
-        const verdict = await validateMultiSourceSignal({
-          symbol: signal.symbol,
-          sources: signal.sources,
-          reasons: signal.reasons
-        }).catch(() => null);
-
+        const verdict = await validateMultiSourceSignal({ symbol: signal.symbol, sources: signal.sources, reasons: signal.reasons }).catch(() => null);
         if (!verdict || !verdict.legitimate || verdict.confidenceScore < minConfidence) continue;
 
         const created = await createAndInsertMarket(supabase, {
-          symbol: signal.symbol,
-          coinId: coin.id,
-          coinName: coin.name,
-          priceScaled,
-          reasoning: verdict.reasoning,
-          confidence: verdict.confidenceScore,
-          commitSha: null,
-          commitMessage: signal.reasons[0] ?? "",
-          signalSources: signal.sources
+          symbol: signal.symbol, coinId: coin.id, coinName: coin.name, priceScaled,
+          reasoning: verdict.reasoning, confidence: verdict.confidenceScore,
+          commitSha: null, commitMessage: signal.reasons[0] ?? ""
         });
         if (created) marketsCreated++;
 
@@ -177,44 +135,73 @@ async function scan(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      marketsCreated,
-      tokensScanned: [...new Set(tokensScanned)],
-      sources: ["nfi", "freqtrade-community", "rugcheck", "dexscreener", "gopluslabs"]
-    });
+    // ─── 3. Proactive new listings from DexScreener ──────────────────────────
+    const newListings = await fetchDexScreenerNewListings().catch(() => []);
+    let proactiveCreated = 0;
+
+    for (const listing of newListings) {
+      if (proactiveCreated >= 2) break;
+      try {
+        tokensScanned.push(listing.symbol);
+
+        const { data: existing } = await supabase.from("markets").select("id").eq("token_symbol", listing.symbol).maybeSingle();
+        if (existing) continue;
+
+        const coin = await lookupCoin(listing.symbol).catch(() => null);
+        const priceUsd = coin ? await getUsdPrice(coin.id).catch(() => listing.priceUsd) : listing.priceUsd;
+        if (priceUsd <= 0) continue;
+        const priceScaled = scaleUsd(priceUsd);
+
+        const verdict = await validateMultiSourceSignal({
+          symbol: listing.symbol,
+          sources: ["dexscreener"],
+          reasons: [listing.reason]
+        }).catch(() => null);
+        if (!verdict || !verdict.legitimate || verdict.confidenceScore < 45) continue;
+
+        const created = await createAndInsertMarket(supabase, {
+          symbol: listing.symbol, coinId: coin?.id ?? null, coinName: coin?.name ?? listing.name,
+          priceScaled, reasoning: verdict.reasoning, confidence: verdict.confidenceScore,
+          commitSha: null, commitMessage: listing.reason
+        });
+        if (created) { marketsCreated++; proactiveCreated++; }
+
+      } catch (err) {
+        console.error(`Proactive listing failed for ${listing.symbol}:`, toMessage(err));
+      }
+    }
+
+    return NextResponse.json({ marketsCreated, tokensScanned: [...new Set(tokensScanned)] });
 
   } catch (error) {
     return NextResponse.json({ error: toMessage(error) }, { status: 500 });
   }
 }
 
-// ─── Shared market creation helper ───────────────────────────────────────────
 async function createAndInsertMarket(
   supabase: ReturnType<typeof import("@/lib/supabase").getSupabaseAdmin>,
   opts: {
     symbol: string;
-    coinId: string;
+    coinId: string | null;
     coinName: string;
     priceScaled: bigint;
     reasoning: string;
     confidence: number;
     commitSha: string | null;
     commitMessage: string;
-    signalSources: string[];
   }
 ): Promise<boolean> {
   const chainMarket = await createOnChainMarket({
     symbol: opts.symbol,
     name: opts.coinName,
-    coingeckoId: opts.coinId,
+    coingeckoId: opts.coinId ?? opts.symbol,
     priceScaled: opts.priceScaled
   });
 
   const createdAt = new Date().toISOString();
-  const resolvesAt =
-    chainMarket.resolvesAt ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const resolvesAt = chainMarket.resolvesAt ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const row: Record<string, unknown> = {
+  const row = {
     id: chainMarket.marketId,
     on_chain_id: chainMarket.marketId,
     token_symbol: opts.symbol,
@@ -227,25 +214,14 @@ async function createAndInsertMarket(
     price_at_creation: opts.priceScaled.toString(),
     created_at: createdAt,
     resolves_at: resolvesAt,
-    resolved: false,
-    signal_sources: opts.signalSources
+    resolved: false
   };
 
   let { error } = await supabase.from("markets").insert(row);
-
-  // If signal_sources column doesn't exist yet, retry without it
-  if (error?.message?.includes("signal_sources")) {
-    const { signal_sources: _omit, ...rowWithout } = row;
-    void _omit;
-    ({ error } = await supabase.from("markets").insert(rowWithout));
-  }
-
   if (error) {
-    // Retry once — on-chain market already exists, losing the DB record would orphan it
     await new Promise((r) => setTimeout(r, 1_000));
     ({ error } = await supabase.from("markets").insert(row));
   }
-
   if (error) throw new Error(`DB insert failed for ${opts.symbol}: ${toMessage(error)}`);
   return true;
 }
