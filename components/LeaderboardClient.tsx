@@ -6,13 +6,24 @@ import { formatUsd, truncateAddress } from "@/lib/format";
 
 type Leader = { wallet: string; won: number };
 
+function LoadingDots() {
+  const [count, setCount] = useState(1);
+  useEffect(() => {
+    const t = setInterval(() => setCount((c) => (c % 3) + 1), 500);
+    return () => clearInterval(t);
+  }, []);
+  return <span>{".".repeat(count)}</span>;
+}
+
 export function LeaderboardClient() {
   const [leaders, setLeaders] = useState<Leader[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/leaderboard")
       .then((r) => r.json())
-      .then((d) => setLeaders(d.leaderboard || []));
+      .then((d) => setLeaders(d.leaderboard || []))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -22,24 +33,39 @@ export function LeaderboardClient() {
         <h1 className="font-display leading-none text-black mb-10" style={{ fontSize: "clamp(4rem, 14vw, 12rem)" }}>
           LEADER<br />BOARD.
         </h1>
-        <div className="max-w-2xl space-y-2">
-          {leaders.map((row, i) => (
-            <div
-              key={row.wallet}
-              className="flex items-center gap-4 border-2 border-black bg-white px-5 py-4"
-            >
-              <span className="font-display text-4xl text-black w-14 shrink-0">
-                #{i + 1}
-              </span>
-              <span className="font-mono text-sm text-black flex-1 truncate">
-                {truncateAddress(row.wallet)}
-              </span>
-              <span className="font-mono font-bold text-black shrink-0">
-                ${formatUsd(row.won)}
-              </span>
-            </div>
-          ))}
-        </div>
+
+        {loading ? (
+          <p className="font-display text-3xl text-black">
+            LOADING<LoadingDots />
+          </p>
+        ) : leaders.length === 0 ? (
+          <div className="border-2 border-black bg-white p-10 max-w-lg">
+            <div className="font-display text-4xl text-black mb-3">NOBODY YET.</div>
+            <p className="font-mono text-sm text-black/60">
+              Leaderboard fills up once markets resolve and winners claim their USDC.
+              Be the first to call a rug correctly.
+            </p>
+          </div>
+        ) : (
+          <div className="max-w-2xl space-y-2">
+            {leaders.map((row, i) => (
+              <div
+                key={row.wallet}
+                className="flex items-center gap-4 border-2 border-black bg-white px-5 py-4"
+              >
+                <span className="font-display text-4xl text-black w-14 shrink-0">
+                  #{i + 1}
+                </span>
+                <span className="font-mono text-sm text-black flex-1 truncate">
+                  {truncateAddress(row.wallet)}
+                </span>
+                <span className="font-mono font-bold text-black shrink-0">
+                  ${formatUsd(row.won)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );
