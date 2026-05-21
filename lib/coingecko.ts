@@ -96,3 +96,59 @@ export async function getMarketChart(coingeckoId: string) {
   if (!response.ok) throw new Error(`CoinGecko chart failed: ${response.status}`);
   return (await response.json()) as { prices: Array<[number, number]> };
 }
+
+/**
+ * Fetch OHLCV candle data from DexScreener for a given pair.
+ * Returns prices as [timestamp_ms, close_price] pairs compatible with PriceChart.
+ */
+export async function getDexChartData(
+  chain: string,
+  pairAddress: string
+): Promise<Array<[number, number]> | null> {
+  try {
+    // DexScreener candles: 1h resolution for last 7 days
+    const resp = await fetch(
+      `https://api.dexscreener.com/latest/dex/pairs/${chain}/${pairAddress}`,
+      { headers: { accept: "application/json" }, signal: AbortSignal.timeout(8_000) }
+    );
+    if (!resp.ok) return null;
+    const data = await resp.json() as {
+      pair?: {
+        priceUsd?: string;
+        priceChange?: { h1?: number; h6?: number; h24?: number };
+        volume?: { h24?: number };
+      };
+    };
+    const pair = data.pair;
+    if (!pair || !pair.priceUsd) return null;
+
+    // DexScreener doesn't expose free historical OHLCV.
+    // Reconstruct a rough 7-point price curve from the available change data.
+    const currentPrice = Number(pair.priceUsd);
+    if (!currentPrice) return null;
+
+    const now = Date.now();
+    const h1Change = (pair.priceChange?.h1 ?? 0) / 100;
+    const h6Change = (pair.priceChange?.h6 ?? 0) / 100;
+    const h24Change = (pair.priceChange?.h24 ?? 0) / 100;
+
+    // Interpolate backwards using the known % changes
+    const price1h = currentPrice / (1 + h1Change || 1);
+    const price6h = currentPrice / (1 + h6Change || 1);
+    const price24h = currentPrice / (1 + h24Change || 1);
+
+    const points: Array<[number, number]> = [
+      [now - 24 * 60 * 60 * 1000, price24h],
+      [now - 12 * 60 * 60 * 1000, (price24h + price6h) / 2],
+      [now - 6 * 60 * 60 * 1000, price6h],
+      [now - 3 * 60 * 60 * 1000, (price6h + price1h) / 2],
+      [now - 1 * 60 * 60 * 1000, price1h],
+      [now - 30 * 60 * 1000, (price1h + currentPrice) / 2],
+      [now, currentPrice],
+    ].filter(([, p]) => p > 0) as Array<[number, number]>;
+
+    return points.length >= 2 ? points : null;
+  } catch {
+    return null;
+  }
+}

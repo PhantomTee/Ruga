@@ -2,7 +2,12 @@
 
 export function PriceChart({ prices }: { prices: Array<[number, number]> }) {
   if (!prices.length) {
-    return <div className="h-56 border border-ruga-line bg-black p-4 text-sm text-white/45">No CoinGecko chart data returned.</div>;
+    return (
+      <div className="h-56 bg-black flex flex-col items-center justify-center gap-2">
+        <div className="font-mono text-xs text-white/30">NO PRICE HISTORY AVAILABLE</div>
+        <div className="font-mono text-[10px] text-white/20">Token not indexed by CoinGecko</div>
+      </div>
+    );
   }
 
   const width = 820;
