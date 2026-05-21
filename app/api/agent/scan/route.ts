@@ -43,6 +43,7 @@ async function scan(request: NextRequest) {
 
     const tokensScanned: string[] = [];
     const skipReasons: string[] = []; // debug: why each token was skipped
+    const createdMarkets: string[] = []; // debug: what was actually created
     let marketsCreated = 0;
 
     // ─── 1. NFI + community blacklist repos (GitHub) ─────────────────────────
@@ -108,7 +109,7 @@ async function scan(request: NextRequest) {
             reasoning: verdict.reasoning, confidence: verdict.confidenceScore,
             commitSha: sha, commitMessage: message
           });
-          if (created) { marketsCreated++; status = "market_created"; }
+          if (created) { marketsCreated++; status = "market_created"; createdMarkets.push(`GH:${symbol}`); }
         }
 
         await supabase.from("commits_processed")
@@ -146,7 +147,7 @@ async function scan(request: NextRequest) {
           reasoning: verdict.reasoning, confidence: verdict.confidenceScore,
           commitSha: null, commitMessage: signal.reasons[0] ?? ""
         });
-        if (created) marketsCreated++;
+        if (created) { marketsCreated++; createdMarkets.push(`EXT:${signal.symbol}`); }
 
       } catch (err) {
         const msg = toMessage(err);
@@ -187,7 +188,7 @@ async function scan(request: NextRequest) {
           commitSha: null,
           commitMessage: listing.reason
         });
-        if (created) { marketsCreated++; proactiveCreated++; }
+        if (created) { marketsCreated++; proactiveCreated++; createdMarkets.push(`PRO:${listing.symbol}`); }
 
       } catch (err) {
         const msg = toMessage(err);
@@ -196,7 +197,7 @@ async function scan(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ marketsCreated, tokensScanned: [...new Set(tokensScanned)], skipReasons });
+    return NextResponse.json({ marketsCreated, tokensScanned: [...new Set(tokensScanned)], skipReasons, createdMarkets });
 
   } catch (error) {
     return NextResponse.json({ error: toMessage(error) }, { status: 500 });
