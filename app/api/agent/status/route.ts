@@ -24,18 +24,10 @@ export async function GET() {
     const resolved = resolvedResult.data || [];
 
     const lastScan = commits.sort((a, b) => Date.parse(b.processed_at) - Date.parse(a.processed_at))[0];
-    const signals = commits.filter((commit) => ["signal_found", "market_created"].includes(commit.status)).length;
-    const failures = commits.filter((commit) => commit.status === "failed").length;
-    const ruggedResolved = resolved.filter((market) => market.outcome === true).length;
-    const accuracyRate = resolved.length ? Math.round((ruggedResolved / resolved.length) * 100) : 0;
-
     return NextResponse.json({
       lastScanTime: lastScan?.processed_at || null,
       nextScanTime: lastScan ? new Date(Date.parse(lastScan.processed_at) + 5 * 60 * 1000).toISOString() : null,
       commitsScannedToday: commits.length,
-      signalsFound: signals,
-      marketsCreated: markets.length,
-      accuracyRate,
     });
   } catch (error) {
     const message = toMessage(error);

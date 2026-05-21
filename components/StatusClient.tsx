@@ -7,9 +7,6 @@ type StatusData = {
   lastScanTime: string | null;
   nextScanTime: string | null;
   commitsScannedToday: number;
-  signalsFound: number;
-  marketsCreated: number;
-  accuracyRate: number;
 };
 
 function LoadingDots() {
@@ -78,13 +75,6 @@ export function StatusClient() {
             <Metric label="Last Scan" value={timeAgo(status.lastScanTime)} />
             <Metric label="Next Scan" value={timeUntil(status.nextScanTime)} />
             <Metric label="Total Scans Today" value={String(status.commitsScannedToday)} />
-            <Metric label="Signals Found" value={String(status.signalsFound)} />
-            <Metric label="Markets Created" value={String(status.marketsCreated)} />
-            <Metric
-              label="Accuracy"
-              value={status.accuracyRate > 0 ? `${status.accuracyRate}%` : "—"}
-              highlight={status.accuracyRate >= 60}
-            />
           </div>
         )}
       </div>
