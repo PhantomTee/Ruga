@@ -8,15 +8,8 @@ type StatusData = {
   nextScanTime: string | null;
   commitsScannedToday: number;
   signalsFound: number;
-  failures: number;
   marketsCreated: number;
   accuracyRate: number;
-  reasoningLogs: Array<{
-    token: string;
-    confidence: number;
-    reasoning: string;
-    createdAt: string;
-  }>;
 };
 
 function LoadingDots() {
@@ -50,7 +43,6 @@ function timeUntil(iso: string | null) {
 export function StatusClient() {
   const [status, setStatus] = useState<StatusData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     fetch("/api/agent/status")
@@ -59,7 +51,6 @@ export function StatusClient() {
       .finally(() => setLoading(false));
 
     const t = setInterval(() => {
-      setTick((n) => n + 1);
       fetch("/api/agent/status")
         .then((r) => r.json())
         .then((d) => setStatus(d));
@@ -83,65 +74,17 @@ export function StatusClient() {
         ) : !status ? (
           <p className="font-mono text-sm text-black">Failed to load agent status.</p>
         ) : (
-          <div className="space-y-6 max-w-4xl">
-            {/* Metric grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-              <Metric label="Last Scan" value={timeAgo(status.lastScanTime)} />
-              <Metric label="Next Scan" value={timeUntil(status.nextScanTime)} />
-              <Metric label="Commits Today" value={String(status.commitsScannedToday)} />
-              <Metric label="Signals Found" value={String(status.signalsFound)} />
-              <Metric label="Markets Created" value={String(status.marketsCreated)} />
-              <Metric
-                label="Accuracy"
-                value={status.accuracyRate > 0 ? `${status.accuracyRate}%` : "—"}
-                highlight={status.accuracyRate >= 60}
-              />
-            </div>
-
-            {/* Failures */}
-            {status.failures > 0 && (
-              <div className="border-2 border-black bg-white p-5">
-                <div className="font-display text-xl text-ruga-red mb-2">
-                  {status.failures} SCAN FAILURE{status.failures > 1 ? "S" : ""} TODAY
-                </div>
-                <p className="font-mono text-xs text-black/60">
-                  Check GitHub Actions logs for details.
-                </p>
-              </div>
-            )}
-
-            {/* Groq reasoning log */}
-            {status.reasoningLogs.length > 0 && (
-              <div className="border-2 border-black bg-white">
-                <div className="border-b-2 border-black px-5 py-3 font-display text-xl text-black">
-                  AI REASONING LOG
-                </div>
-                <div className="divide-y-2 divide-black max-h-[600px] overflow-y-auto">
-                  {status.reasoningLogs.map((log, i) => (
-                    <div key={i} className="px-5 py-4">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="font-display text-2xl text-black">{log.token}</span>
-                        <span
-                          className={`font-mono text-xs px-2 py-0.5 border border-black ${
-                            log.confidence >= 70 ? "bg-black text-white" : "bg-white text-black"
-                          }`}
-                        >
-                          {log.confidence}% confidence
-                        </span>
-                        <span className="font-mono text-xs text-black/40 ml-auto">
-                          {timeAgo(log.createdAt)}
-                        </span>
-                      </div>
-                      <p className="font-mono text-xs text-black/70 leading-5">{log.reasoning}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <p className="font-mono text-xs text-black/40">
-              Auto-refreshes every 30s · tick #{tick}
-            </p>
+          <div className="space-y-2 max-w-2xl">
+            <Metric label="Last Scan" value={timeAgo(status.lastScanTime)} />
+            <Metric label="Next Scan" value={timeUntil(status.nextScanTime)} />
+            <Metric label="Total Scans Today" value={String(status.commitsScannedToday)} />
+            <Metric label="Signals Found" value={String(status.signalsFound)} />
+            <Metric label="Markets Created" value={String(status.marketsCreated)} />
+            <Metric
+              label="Accuracy"
+              value={status.accuracyRate > 0 ? `${status.accuracyRate}%` : "—"}
+              highlight={status.accuracyRate >= 60}
+            />
           </div>
         )}
       </div>
@@ -149,19 +92,11 @@ export function StatusClient() {
   );
 }
 
-function Metric({
-  label,
-  value,
-  highlight
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
+function Metric({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="border-2 border-black bg-white p-4">
-      <div className="font-mono text-xs text-black/40 uppercase">{label}</div>
-      <div className={`font-display text-3xl mt-1 ${highlight ? "text-ruga-red" : "text-black"}`}>
+    <div className="border-2 border-black bg-white px-5 py-4 flex items-center justify-between">
+      <div className="font-mono text-sm text-black/50 uppercase">{label}</div>
+      <div className={`font-display text-3xl ${highlight ? "text-ruga-red" : "text-black"}`}>
         {value}
       </div>
     </div>

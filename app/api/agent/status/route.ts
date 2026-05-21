@@ -34,18 +34,8 @@ export async function GET() {
       nextScanTime: lastScan ? new Date(Date.parse(lastScan.processed_at) + 5 * 60 * 1000).toISOString() : null,
       commitsScannedToday: commits.length,
       signalsFound: signals,
-      failures,
       marketsCreated: markets.length,
       accuracyRate,
-      reasoningLogs: markets
-        .filter((market) => market.groq_reasoning)
-        .slice(0, 20)
-        .map((market) => ({
-          token: market.token_symbol,
-          confidence: market.groq_confidence,
-          reasoning: market.groq_reasoning,
-          createdAt: market.created_at
-        }))
     });
   } catch (error) {
     const message = toMessage(error);
