@@ -7,22 +7,26 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
-      .from("markets")
-      .select("*")
-      .order("created_at", { ascending: false });
+    // Run both a count query and a full select to isolate the issue
+    const [countResult, dataResult] = await Promise.all([
+      supabase.from("markets").select("id", { count: "exact", head: true }),
+      supabase.from("markets").select("*").order("created_at", { ascending: false })
+    ]);
 
-    // Surface DB errors rather than silently returning []
-    if (error) {
-      console.error("markets GET supabase error:", error);
+    // Return debug info so we can see exactly what Supabase reports
+    if (countResult.error || dataResult.error) {
       return NextResponse.json(
-        { markets: [], _dbError: error.message, _dbCode: error.code },
+        {
+          markets: [],
+          _countError: countResult.error?.message,
+          _dataError: dataResult.error?.message,
+        },
         { headers: { "Cache-Control": "no-store" } }
       );
     }
 
     return NextResponse.json(
-      { markets: data ?? [] },
+      { markets: dataResult.data ?? [], _count: countResult.count },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {
