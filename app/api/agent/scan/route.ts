@@ -42,6 +42,7 @@ async function scan(request: NextRequest) {
     const supabase = getSupabaseAdmin();
 
     const tokensScanned: string[] = [];
+    const skipReasons: string[] = []; // debug: why each token was skipped
     let marketsCreated = 0;
 
     // ─── 1. NFI + community blacklist repos (GitHub) ─────────────────────────
@@ -96,10 +97,11 @@ async function scan(request: NextRequest) {
           if (existing) continue;
 
           const resolved = await resolvePrice(symbol).catch(() => null);
-          if (!resolved) continue;
+          if (!resolved) { skipReasons.push(`${symbol}: no price (CG+DEX miss)`); continue; }
 
-          const verdict = await validateRugSignal({ symbol, message, diff }).catch(() => null);
-          if (!verdict || !verdict.legitimate || verdict.confidenceScore <= 70) continue;
+          const verdict = await validateRugSignal({ symbol, message, diff }).catch((e) => { skipReasons.push(`${symbol}: groq error ${toMessage(e)}`); return null; });
+          if (!verdict) continue;
+          if (!verdict.legitimate || verdict.confidenceScore <= 70) { skipReasons.push(`${symbol}: groq reject (legit=${verdict.legitimate} conf=${verdict.confidenceScore})`); continue; }
 
           const created = await createAndInsertMarket(supabase, {
             symbol, ...resolved,
@@ -131,11 +133,12 @@ async function scan(request: NextRequest) {
         if (existing) continue;
 
         const resolved = await resolvePrice(signal.symbol).catch(() => null);
-        if (!resolved) continue;
+        if (!resolved) { skipReasons.push(`${signal.symbol}: no price (CG+DEX miss)`); continue; }
 
         const minConfidence = signal.sources.length >= 2 ? 55 : 70;
-        const verdict = await validateMultiSourceSignal({ symbol: signal.symbol, sources: signal.sources, reasons: signal.reasons }).catch(() => null);
-        if (!verdict || !verdict.legitimate || verdict.confidenceScore < minConfidence) continue;
+        const verdict = await validateMultiSourceSignal({ symbol: signal.symbol, sources: signal.sources, reasons: signal.reasons }).catch((e) => { skipReasons.push(`${signal.symbol}: groq error ${toMessage(e)}`); return null; });
+        if (!verdict) continue;
+        if (!verdict.legitimate || verdict.confidenceScore < minConfidence) { skipReasons.push(`${signal.symbol}: groq reject (legit=${verdict.legitimate} conf=${verdict.confidenceScore} min=${minConfidence})`); continue; }
 
         const created = await createAndInsertMarket(supabase, {
           symbol: signal.symbol, ...resolved,
@@ -145,7 +148,9 @@ async function scan(request: NextRequest) {
         if (created) marketsCreated++;
 
       } catch (err) {
-        console.error(`External signal failed for ${signal.symbol}:`, toMessage(err));
+        const msg = toMessage(err);
+        skipReasons.push(`${signal.symbol}: exception ${msg}`);
+        console.error(`External signal failed for ${signal.symbol}:`, msg);
       }
     }
 
@@ -173,8 +178,9 @@ async function scan(request: NextRequest) {
           symbol: listing.symbol,
           sources: ["dexscreener"],
           reasons: [listing.reason]
-        }).catch(() => null);
-        if (!verdict || !verdict.legitimate || verdict.confidenceScore < 45) continue;
+        }).catch((e) => { skipReasons.push(`${listing.symbol}: groq error ${toMessage(e)}`); return null; });
+        if (!verdict) continue;
+        if (!verdict.legitimate || verdict.confidenceScore < 45) { skipReasons.push(`${listing.symbol}: groq reject (legit=${verdict.legitimate} conf=${verdict.confidenceScore})`); continue; }
 
         const created = await createAndInsertMarket(supabase, {
           symbol: listing.symbol,
@@ -189,11 +195,13 @@ async function scan(request: NextRequest) {
         if (created) { marketsCreated++; proactiveCreated++; }
 
       } catch (err) {
-        console.error(`Proactive listing failed for ${listing.symbol}:`, toMessage(err));
+        const msg = toMessage(err);
+        skipReasons.push(`${listing.symbol}: exception ${msg}`);
+        console.error(`Proactive listing failed for ${listing.symbol}:`, msg);
       }
     }
 
-    return NextResponse.json({ marketsCreated, tokensScanned: [...new Set(tokensScanned)] });
+    return NextResponse.json({ marketsCreated, tokensScanned: [...new Set(tokensScanned)], skipReasons });
 
   } catch (error) {
     return NextResponse.json({ error: toMessage(error) }, { status: 500 });
