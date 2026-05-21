@@ -58,10 +58,23 @@ export function MarketDetailClient({ id }: { id: string }) {
   }, [market, id]);
 
   if (error) {
+    const notFound = error.toLowerCase().includes("not found") || error.toLowerCase().includes("no rows");
     return (
       <div className="min-h-screen bg-ruga-red">
         <Nav />
-        <div className="px-6 py-10 font-mono text-sm text-black">{error}</div>
+        <div className="px-6 py-10">
+          <h1 className="font-display text-black leading-none mb-6" style={{ fontSize: "clamp(3rem,12vw,8rem)" }}>
+            {notFound ? "MARKET NOT FOUND." : "ERROR."}
+          </h1>
+          <p className="font-mono text-sm text-black/60 mb-8 max-w-sm">
+            {notFound
+              ? "This market doesn't exist or was removed. The contract may have been redeployed."
+              : error}
+          </p>
+          <Link href="/markets" className="font-display text-2xl bg-black text-white px-8 py-3 border-2 border-black hover:bg-ruga-dim transition-colors">
+            ← ALL MARKETS
+          </Link>
+        </div>
       </div>
     );
   }

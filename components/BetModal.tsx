@@ -13,6 +13,25 @@ import { marketSymbol } from "./types";
 
 type Step = "idle" | "approving" | "betting" | "recording" | "done";
 
+// Map contract custom error selectors → human messages
+const CONTRACT_ERRORS: Record<string, string> = {
+  "0x9db8d5b1": "Market doesn't exist on-chain. The contract was redeployed — please refresh the page.",
+  "0x0b5f6bf0": "This market is already closed.",
+  "0x13be252b": "USDC allowance too low. Please approve again.",
+  "0x2c5211c6": "Invalid bet amount.",
+  "0x56c5d21d": "Market can't be resolved yet — time hasn't expired.",
+};
+
+function decodeError(err: unknown): string {
+  const raw = JSON.stringify(err);
+  for (const [selector, msg] of Object.entries(CONTRACT_ERRORS)) {
+    if (raw.includes(selector)) return msg;
+  }
+  if (raw.includes("4001") || raw.includes("rejected")) return "Transaction rejected in wallet";
+  if (err instanceof Error) return err.message;
+  return "Bet failed — please try again";
+}
+
 export function BetModal({
   market,
   side,
@@ -105,9 +124,7 @@ export function BetModal({
       showToast(`${amount} USDC on ${side.toUpperCase()} — bet placed! ✓`);
       onSuccess();
     } catch (err) {
-      const rejected =
-        typeof err === "object" && err !== null && JSON.stringify(err).includes("4001");
-      setError(rejected ? "Transaction rejected in wallet" : err instanceof Error ? err.message : "Bet failed");
+      setError(decodeError(err));
       setStep("idle");
     }
   }

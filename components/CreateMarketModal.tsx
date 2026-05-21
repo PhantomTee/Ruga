@@ -151,17 +151,17 @@ export function CreateMarketModal({ onClose }: { onClose: () => void }) {
       setCreatedMarketId(regData.marketId ?? marketId);
       setState("created");
     } catch (err) {
-      const rejected =
-        err instanceof Error &&
-        (err.message.includes("4001") || err.message.toLowerCase().includes("rejected"));
+      const raw = JSON.stringify(err);
+      const rejected = raw.includes("4001") || raw.includes("rejected") || raw.includes("denied");
       setState("error");
       setErrorMsg(rejected ? "Transaction rejected in wallet" : err instanceof Error ? err.message : "Transaction failed");
     }
   }
 
-  function goToMarket(id: number) {
+  function goToMarket(id: number | null) {
     onClose();
-    router.push(`/market/${id}`);
+    if (id !== null) router.push(`/market/${id}`);
+    else router.push("/markets");
   }
 
   const statusLabel =
@@ -318,7 +318,7 @@ export function CreateMarketModal({ onClose }: { onClose: () => void }) {
                 </p>
               </div>
               <button
-                onClick={() => existingMarketId !== null && goToMarket(existingMarketId)}
+                onClick={() => goToMarket(existingMarketId)}
                 className="w-full border-2 border-black bg-black text-white py-3 font-display text-2xl hover:bg-ruga-dim transition-colors"
               >
                 GO TO MARKET →
@@ -335,12 +335,15 @@ export function CreateMarketModal({ onClose }: { onClose: () => void }) {
                   <span className="font-bold text-black">${token.symbol}</span> is now live on-chain.
                   7 days to find out if it rugs.
                 </p>
+                {createdMarketId !== null && (
+                  <div className="font-mono text-xs text-black/30 mt-2">Market #{createdMarketId}</div>
+                )}
               </div>
               <button
-                onClick={() => createdMarketId !== null && goToMarket(createdMarketId)}
+                onClick={() => goToMarket(createdMarketId)}
                 className="w-full border-2 border-black bg-black text-white py-3 font-display text-2xl hover:bg-ruga-dim transition-colors"
               >
-                BET NOW →
+                {createdMarketId !== null ? "BET NOW →" : "VIEW MARKETS →"}
               </button>
             </div>
           )}
