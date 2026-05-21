@@ -46,6 +46,7 @@ contract RugaMarket {
     error AlreadyClaimed();
     error NoWinnings();
     error TransferFailed();
+    error MarketNotReady();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -69,7 +70,7 @@ contract RugaMarket {
         string calldata tokenName,
         string calldata coingeckoId,
         uint256 currentPrice
-    ) external onlyOwner returns (uint256 marketId) {
+    ) external returns (uint256 marketId) {
         if (currentPrice == 0) revert InvalidAmount();
         marketId = ++marketCount;
         Market storage market = markets[marketId];
@@ -96,6 +97,7 @@ contract RugaMarket {
         Market storage market = markets[marketId];
         if (market.id == 0) revert InvalidMarket();
         if (market.resolved) revert MarketClosed();
+        if (block.timestamp < market.resolvesAt) revert MarketNotReady();
         market.resolved = true;
         market.outcome = rugged;
         emit MarketResolved(marketId, rugged);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseUnits } from "ethers";
+import { formatUnits, parseUnits } from "ethers";
 import { verifyBetTransactionDetails } from "@/lib/chain";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { toMessage } from "@/lib/errors";
@@ -25,12 +25,7 @@ export async function GET(request: NextRequest) {
 
 // Integer microdollar arithmetic to avoid float precision loss on USDC amounts
 function addUsdc(a: string | number | null, b: string): string {
-  const aMicro = Math.round(Number(a || 0) * 1_000_000);
-  const bMicro = Math.round(Number(b) * 1_000_000);
-  const total = aMicro + bMicro;
-  const whole = Math.floor(total / 1_000_000);
-  const frac = total % 1_000_000;
-  return frac === 0 ? String(whole) : `${whole}.${String(frac).padStart(6, "0").replace(/0+$/, "")}`;
+  return formatUnits(parseUnits(String(a || "0"), 6) + parseUnits(b, 6), 6);
 }
 
 export const dynamic = "force-dynamic";
@@ -51,7 +46,7 @@ export async function POST(request: NextRequest) {
     if (!["yes", "no"].includes(body.side)) {
       return NextResponse.json({ error: "side must be yes or no" }, { status: 400 });
     }
-    if (Number(body.amount) <= 0) {
+    if (!/^\d+(\.\d{1,6})?$/.test(body.amount) || parseUnits(body.amount, 6) <= 0n) {
       return NextResponse.json({ error: "amount must be greater than zero" }, { status: 400 });
     }
 

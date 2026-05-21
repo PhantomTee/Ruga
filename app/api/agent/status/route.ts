@@ -23,11 +23,33 @@ export async function GET() {
     const markets = marketsResult.data || [];
     const resolved = resolvedResult.data || [];
 
+    const resolvedCount = resolved.length;
+    const ruggedCount = resolved.filter((market) => market.outcome === true).length;
+    const signalCount = commits.filter((commit) => ["signal_found", "market_created"].includes(commit.status)).length;
+    const createdCount = commits.filter((commit) => commit.status === "market_created").length;
+    const recentGroqLogs = [...markets]
+      .filter((market) => market.groq_reasoning)
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+      .slice(0, 10)
+      .map((market) => ({
+        marketId: market.id,
+        tokenSymbol: market.token_symbol,
+        reasoning: market.groq_reasoning,
+        confidenceScore: market.groq_confidence,
+        createdAt: market.created_at
+      }));
+
     const lastScan = commits.sort((a, b) => Date.parse(b.processed_at) - Date.parse(a.processed_at))[0];
     return NextResponse.json({
       lastScanTime: lastScan?.processed_at || null,
       nextScanTime: lastScan ? new Date(Date.parse(lastScan.processed_at) + 5 * 60 * 1000).toISOString() : null,
       commitsScannedToday: commits.length,
+      signalsFoundToday: signalCount,
+      marketsCreatedToday: createdCount || markets.length,
+      resolvedMarkets: resolvedCount,
+      ruggedResolvedMarkets: ruggedCount,
+      accuracyRate: resolvedCount > 0 ? Math.round((ruggedCount / resolvedCount) * 10000) / 100 : null,
+      recentGroqLogs
     });
   } catch (error) {
     const message = toMessage(error);

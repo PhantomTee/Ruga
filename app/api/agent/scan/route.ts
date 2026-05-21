@@ -208,12 +208,26 @@ async function createAndInsertMarket(
     commitMessage: string;
   }
 ): Promise<boolean> {
-  const chainMarket = await createOnChainMarket({
-    symbol: opts.symbol,
-    name: opts.coinName,
-    coingeckoId: opts.coinId ?? opts.symbol,
-    priceScaled: opts.priceScaled
-  });
+  const lock = await supabase
+    .from("market_creation_locks")
+    .insert({ token_symbol: opts.symbol });
+  if (lock.error) {
+    if (lock.error.code === "23505") return false;
+    throw lock.error;
+  }
+
+  let chainMarket: Awaited<ReturnType<typeof createOnChainMarket>>;
+  try {
+    chainMarket = await createOnChainMarket({
+      symbol: opts.symbol,
+      name: opts.coinName,
+      coingeckoId: opts.coinId ?? opts.symbol,
+      priceScaled: opts.priceScaled
+    });
+  } catch (error) {
+    await supabase.from("market_creation_locks").delete().eq("token_symbol", opts.symbol);
+    throw error;
+  }
 
   const createdAt = new Date().toISOString();
   const resolvesAt = chainMarket.resolvesAt ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();

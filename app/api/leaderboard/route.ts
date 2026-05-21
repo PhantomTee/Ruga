@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
+import { formatUnits, parseUnits } from "ethers";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { toMessage } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
+
+function usdc(value: string | number | null | undefined) {
+  return parseUnits(String(value ?? "0"), 6);
+}
 
 export async function GET() {
   try {
@@ -17,24 +22,24 @@ export async function GET() {
     if (marketError) throw marketError;
 
     const marketMap = new Map((markets || []).map((market) => [String(market.id), market]));
-    const totals = new Map<string, number>();
+    const totals = new Map<string, bigint>();
 
     for (const bet of bets || []) {
       const market = marketMap.get(String(bet.market_id));
       if (!market?.resolved) continue;
       const winningSide = market.outcome ? "yes" : "no";
       if (bet.side === winningSide) {
-        const winningPool = Number(market.outcome ? market.yes_pool : market.no_pool);
-        const losingPool = Number(market.outcome ? market.no_pool : market.yes_pool);
-        const stake = Number(bet.amount);
-        const grossProfit = winningPool > 0 ? (losingPool * stake) / winningPool : 0;
-        const fee = grossProfit * 0.02;
-        totals.set(bet.wallet_address, (totals.get(bet.wallet_address) || 0) + stake + grossProfit - fee);
+        const winningPool = usdc(market.outcome ? market.yes_pool : market.no_pool);
+        const losingPool = usdc(market.outcome ? market.no_pool : market.yes_pool);
+        const stake = usdc(bet.amount);
+        const grossProfit = winningPool > 0n ? (losingPool * stake) / winningPool : 0n;
+        const fee = (grossProfit * 200n) / 10_000n;
+        totals.set(bet.wallet_address, (totals.get(bet.wallet_address) || 0n) + stake + grossProfit - fee);
       }
     }
 
     const leaderboard = [...totals.entries()]
-      .map(([wallet, won]) => ({ wallet, won }))
+      .map(([wallet, won]) => ({ wallet, won: Number(formatUnits(won, 6)) }))
       .sort((a, b) => b.won - a.won)
       .slice(0, 10);
 

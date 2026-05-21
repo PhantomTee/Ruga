@@ -102,3 +102,31 @@ test("agent route authorization is enforced when CRON_SECRET is configured", () 
     }
   }
 });
+
+test("agent route authorization fails closed when CRON_SECRET is missing", () => {
+  const previous = process.env.CRON_SECRET;
+  delete process.env.CRON_SECRET;
+
+  try {
+    assert.throws(
+      () => assertAgentAuthorized({ headers: { get: () => null } }),
+      /CRON_SECRET is required/
+    );
+  } finally {
+    if (previous !== undefined) process.env.CRON_SECRET = previous;
+  }
+});
+
+test("RugaMarket allows frontend createMarket and blocks early resolution", () => {
+  const source = fs.readFileSync("contracts/RugaMarket.sol", "utf8");
+  assert.match(source, /function createMarket\([\s\S]*?\) external returns \(uint256 marketId\)/);
+  assert.doesNotMatch(source, /function createMarket\([\s\S]*?\) external onlyOwner returns/);
+  assert.match(source, /if \(block\.timestamp < market\.resolvesAt\) revert MarketNotReady\(\);/);
+});
+
+test("schema includes market creation locks and status migrations", () => {
+  const schema = fs.readFileSync("supabase/schema.sql", "utf8");
+  assert.match(schema, /create table if not exists market_creation_locks/);
+  assert.match(schema, /drop constraint if exists/);
+  assert.match(schema, /commits_processed_status_check/);
+});

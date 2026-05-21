@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertAgentAuthorized } from "@/lib/agent-auth";
 import { createOnChainMarket } from "@/lib/chain";
 import { getUsdPrice, lookupCoin, lookupPriceFromDex, scaleUsd } from "@/lib/coingecko";
 import { validateMultiSourceSignal } from "@/lib/groq";
@@ -10,6 +11,7 @@ export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
+    assertAgentAuthorized(request);
     const body = await request.json() as { symbol?: string };
     const symbol = (body.symbol ?? "").toUpperCase().trim();
 
@@ -29,6 +31,13 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       return NextResponse.json({ exists: true, marketId: existing.id });
+    }
+    const lock = await supabase.from("market_creation_locks").insert({ token_symbol: symbol });
+    if (lock.error) {
+      if (lock.error.code === "23505") {
+        return NextResponse.json({ error: `A market for ${symbol} is already being created` }, { status: 409 });
+      }
+      throw lock.error;
     }
 
     // Resolve price — CoinGecko first, DexScreener as fallback
@@ -66,12 +75,18 @@ export async function POST(request: NextRequest) {
     }).catch(() => null);
 
     // Create on-chain market
-    const chainMarket = await createOnChainMarket({
-      symbol,
-      name: coinName,
-      coingeckoId: coinId ?? symbol,
-      priceScaled: priceScaled!,
-    });
+    let chainMarket: Awaited<ReturnType<typeof createOnChainMarket>>;
+    try {
+      chainMarket = await createOnChainMarket({
+        symbol,
+        name: coinName,
+        coingeckoId: coinId ?? symbol,
+        priceScaled: priceScaled!,
+      });
+    } catch (error) {
+      await supabase.from("market_creation_locks").delete().eq("token_symbol", symbol);
+      throw error;
+    }
 
     const resolvesAt =
       chainMarket.resolvesAt ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();

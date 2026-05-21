@@ -3,6 +3,7 @@ node_modules
 .vercel
 .env
 .env.local
+.env.*
 .env.*.local
 
 artifacts
