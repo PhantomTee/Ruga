@@ -77,8 +77,8 @@ export function MarketsClient() {
           <div className="border-2 border-black bg-white p-10 max-w-lg">
             <div className="font-display text-4xl text-black mb-3">NO MARKETS YET.</div>
             <p className="font-mono text-sm text-black/60">
-              The AI agent scans NostalgiaForInfinity commits every 5 minutes.
-              Markets appear here when a blacklisted token clears the rug-signal threshold.
+              The AI is watching. When a token gets flagged across multiple
+              detection sources, a market opens here automatically.
             </p>
           </div>
         ) : (
