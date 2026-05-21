@@ -6,6 +6,7 @@ import { useState } from "react";
 import { injected } from "wagmi/connectors";
 import { createConfig, http, WagmiProvider } from "wagmi";
 import { defineChain } from "viem";
+import { ToastProvider } from "./Toast";
 
 const arcChainId = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID);
 if (Number.isNaN(arcChainId) || arcChainId === 0) {
@@ -50,7 +51,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             "--ck-overlay-background": "rgba(0,0,0,0.6)"
           }}
         >
-          {children}
+          <ToastProvider>{children}</ToastProvider>
         </ConnectKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

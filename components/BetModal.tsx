@@ -4,8 +4,10 @@ import confetti from "canvas-confetti";
 import { BrowserProvider, Contract, MaxUint256, parseUnits, type Eip1193Provider } from "ethers";
 import { useState } from "react";
 import { useAccount, useWalletClient } from "wagmi";
+import { useModal } from "connectkit";
 import { ERC20_ABI, RUGA_MARKET_ABI } from "@/lib/abi";
 import { CONTRACT_ADDRESS, USDC_ADDRESS } from "@/lib/constants";
+import { useToast } from "./Toast";
 import type { Market } from "./types";
 import { marketSymbol } from "./types";
 
@@ -24,14 +26,45 @@ export function BetModal({
 }) {
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const { setOpen: openConnectKit } = useModal();
+  const { show: showToast } = useToast();
   const [amount, setAmount] = useState("10");
   const [step, setStep] = useState<Step>("idle");
   const [error, setError] = useState<string | null>(null);
 
+  // Wallet not connected — show connect prompt instead of the bet form
+  if (!address) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="w-full max-w-sm border-2 border-black bg-white">
+          <div className="flex items-center justify-between border-b-2 border-black px-5 py-4">
+            <div className="font-display text-2xl text-black leading-none">CONNECT WALLET</div>
+            <button
+              onClick={onClose}
+              className="border-2 border-black w-9 h-9 flex items-center justify-center font-mono text-sm hover:bg-black hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="p-5 space-y-4">
+            <p className="font-mono text-sm text-black/60">
+              You need a wallet to place bets on Ruga.
+            </p>
+            <button
+              onClick={() => { openConnectKit(true); onClose(); }}
+              className="w-full py-4 font-display text-2xl border-2 border-black bg-black text-white hover:bg-ruga-red hover:text-black transition-colors"
+            >
+              CONNECT →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   async function placeBet() {
     try {
       setError(null);
-      if (!address) throw new Error("Connect a wallet before betting");
       if (!walletClient) throw new Error("No active wallet client found");
       if (!CONTRACT_ADDRESS) throw new Error("NEXT_PUBLIC_CONTRACT_ADDRESS is not configured");
       if (!USDC_ADDRESS) throw new Error("NEXT_PUBLIC_USDC_ADDRESS is not configured");
@@ -69,6 +102,7 @@ export function BetModal({
 
       setStep("done");
       confetti({ particleCount: 140, spread: 70, origin: { y: 0.72 }, colors: ["#FF1515", "#000000", "#FFFFFF"] });
+      showToast(`${amount} USDC on ${side.toUpperCase()} — bet placed! ✓`);
       onSuccess();
     } catch (err) {
       const rejected =

@@ -24,10 +24,15 @@ const config: Config = {
         flash: {
           "0%": { opacity: "0.6" },
           "100%": { opacity: "0" }
+        },
+        "slide-up": {
+          "0%": { opacity: "0", transform: "translateY(16px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" }
         }
       },
       animation: {
-        flash: "flash 1.6s ease-out"
+        flash: "flash 1.6s ease-out",
+        "slide-up": "slide-up 0.25s ease-out"
       }
     }
   },

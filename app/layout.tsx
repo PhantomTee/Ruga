@@ -16,9 +16,31 @@ const jetbrains = JetBrains_Mono({
   display: "swap"
 });
 
+const APP_URL = "https://ruga-app.vercel.app";
+const DESCRIPTION =
+  "AI-powered prediction markets for crypto rug pulls. A token gets blacklisted — you bet whether it rugs within 7 days.";
+
 export const metadata: Metadata = {
-  title: "Ruga",
-  description: "Bet on rugs before they happen."
+  title: { default: "Ruga", template: "%s · Ruga" },
+  description: DESCRIPTION,
+  metadataBase: new URL(APP_URL),
+  openGraph: {
+    title: "Ruga — Bet on the Rug",
+    description: DESCRIPTION,
+    url: APP_URL,
+    siteName: "Ruga",
+    locale: "en_US",
+    type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Ruga — Bet on the Rug",
+    description: DESCRIPTION,
+    creator: "@rugaapp"
+  },
+  icons: {
+    icon: "/favicon.ico"
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

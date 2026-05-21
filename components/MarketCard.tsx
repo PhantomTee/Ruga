@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useAccount } from "wagmi";
 import { formatDuration, secondsRemaining } from "@/lib/format";
 import { BetModal } from "./BetModal";
 import type { Market } from "./types";
 import { marketSymbol, noPool, resolvesAt, yesPool } from "./types";
 
 export function MarketCard({ market, onRefresh }: { market: Market; onRefresh: () => void }) {
+  const { address } = useAccount();
   const [betSide, setBetSide] = useState<"yes" | "no" | null>(null);
   const [remaining, setRemaining] = useState(secondsRemaining(resolvesAt(market)));
   const yes = yesPool(market);
@@ -58,16 +60,26 @@ export function MarketCard({ market, onRefresh }: { market: Market; onRefresh: (
         <button
           disabled={market.resolved}
           onClick={() => setBetSide("yes")}
-          className="border-r border-black py-3 font-display text-2xl bg-black text-white hover:bg-ruga-red hover:text-black transition-colors disabled:opacity-25"
+          className="border-r border-black py-3 font-display text-2xl bg-black text-white hover:bg-ruga-red hover:text-black transition-colors disabled:opacity-25 relative group"
         >
           YES
+          {!address && !market.resolved && (
+            <span className="absolute inset-0 flex items-center justify-center bg-black/80 text-white font-mono text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+              connect wallet
+            </span>
+          )}
         </button>
         <button
           disabled={market.resolved}
           onClick={() => setBetSide("no")}
-          className="py-3 font-display text-2xl bg-white text-black hover:bg-black hover:text-white transition-colors disabled:opacity-25"
+          className="py-3 font-display text-2xl bg-white text-black hover:bg-black hover:text-white transition-colors disabled:opacity-25 relative group"
         >
           NO
+          {!address && !market.resolved && (
+            <span className="absolute inset-0 flex items-center justify-center bg-black/80 text-white font-mono text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+              connect wallet
+            </span>
+          )}
         </button>
       </div>
 
