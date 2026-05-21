@@ -5,6 +5,7 @@ import { ConnectKitProvider } from "connectkit";
 import { useState } from "react";
 import { injected } from "wagmi/connectors";
 import { createConfig, http, WagmiProvider } from "wagmi";
+import { mainnet } from "wagmi/chains";
 import { defineChain } from "viem";
 import { ToastProvider } from "./Toast";
 
@@ -27,15 +28,30 @@ const arcTestnet = defineChain({
 });
 
 const config = createConfig({
-  chains: [arcTestnet],
+  chains: [arcTestnet, mainnet],
   connectors: [injected()],
   transports: {
-    [arcTestnet.id]: http(process.env.NEXT_PUBLIC_ARC_RPC || "")
+    [arcTestnet.id]: http(process.env.NEXT_PUBLIC_ARC_RPC || ""),
+    // Provide a CORS-friendly public RPC for mainnet so ConnectKit's ENS
+    // resolution doesn't fall back to eth.merkle.io (which blocks cross-origin requests)
+    [mainnet.id]: http("https://eth.llamarpc.com"),
   }
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            // Don't retry on failure — prevents CORS error spam in the console
+            // when ConnectKit tries to fetch ENS/avatar data
+            retry: false,
+            staleTime: 30_000,
+          },
+        },
+      })
+  );
 
   return (
     <WagmiProvider config={config}>
