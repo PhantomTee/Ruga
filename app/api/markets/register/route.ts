@@ -41,9 +41,24 @@ export async function POST(request: NextRequest) {
     if (!CONTRACT_ADDRESS || receipt.to?.toLowerCase() !== CONTRACT_ADDRESS.toLowerCase()) {
       return NextResponse.json({ error: "Transaction did not target the Ruga contract" }, { status: 400 });
     }
+    const tx = await provider.getTransaction(txHash);
+    if (!tx) {
+      return NextResponse.json({ error: "Transaction details were not found on Arc" }, { status: 400 });
+    }
 
     // Parse MarketCreated event from receipt
     const iface = new Interface(RUGA_MARKET_ABI);
+    const parsedTx = iface.parseTransaction({ data: tx.data, value: tx.value });
+    if (!parsedTx || parsedTx.name !== "createMarket") {
+      return NextResponse.json({ error: "Transaction did not call createMarket" }, { status: 400 });
+    }
+    if (
+      String(parsedTx.args.tokenSymbol ?? parsedTx.args[0]).toUpperCase() !== symbol.toUpperCase() ||
+      String(parsedTx.args.currentPrice ?? parsedTx.args[3]) !== String(priceScaled)
+    ) {
+      return NextResponse.json({ error: "Transaction market details do not match request body" }, { status: 400 });
+    }
+
     let marketId: number | null = null;
     let resolvesAt: string | null = null;
 
