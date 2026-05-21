@@ -42,8 +42,6 @@ async function scan(request: NextRequest) {
     const supabase = getSupabaseAdmin();
 
     const tokensScanned: string[] = [];
-    const skipReasons: string[] = []; // debug: why each token was skipped
-    const createdMarkets: string[] = []; // debug: what was actually created
     let marketsCreated = 0;
 
     // ─── 1. NFI + community blacklist repos (GitHub) ─────────────────────────
@@ -98,18 +96,17 @@ async function scan(request: NextRequest) {
           if (existing) continue;
 
           const resolved = await resolvePrice(symbol).catch(() => null);
-          if (!resolved) { skipReasons.push(`${symbol}: no price (CG+DEX miss)`); continue; }
+          if (!resolved) continue;
 
-          const verdict = await validateRugSignal({ symbol, message, diff }).catch((e) => { skipReasons.push(`${symbol}: groq error ${toMessage(e)}`); return null; });
-          if (!verdict) continue;
-          if (!verdict.legitimate || verdict.confidenceScore <= 70) { skipReasons.push(`${symbol}: groq reject (legit=${verdict.legitimate} conf=${verdict.confidenceScore})`); continue; }
+          const verdict = await validateRugSignal({ symbol, message, diff }).catch(() => null);
+          if (!verdict || !verdict.legitimate || verdict.confidenceScore <= 70) continue;
 
           const created = await createAndInsertMarket(supabase, {
             symbol, ...resolved,
             reasoning: verdict.reasoning, confidence: verdict.confidenceScore,
             commitSha: sha, commitMessage: message
           });
-          if (created) { marketsCreated++; status = "market_created"; createdMarkets.push(`GH:${symbol}`); }
+          if (created) { marketsCreated++; status = "market_created"; }
         }
 
         await supabase.from("commits_processed")
@@ -134,25 +131,21 @@ async function scan(request: NextRequest) {
         if (existing) continue;
 
         const resolved = await resolvePrice(signal.symbol).catch(() => null);
-        if (!resolved) { skipReasons.push(`${signal.symbol}: no price (CG+DEX miss)`); continue; }
+        if (!resolved) continue;
 
-        // Use confidenceScore only — Groq's "legitimate" field is ambiguous across prompt versions
         const minConfidence = signal.sources.length >= 2 ? 55 : 70;
-        const verdict = await validateMultiSourceSignal({ symbol: signal.symbol, sources: signal.sources, reasons: signal.reasons }).catch((e) => { skipReasons.push(`${signal.symbol}: groq error ${toMessage(e)}`); return null; });
-        if (!verdict) continue;
-        if (verdict.confidenceScore < minConfidence) { skipReasons.push(`${signal.symbol}: low conf (${verdict.confidenceScore} < ${minConfidence})`); continue; }
+        const verdict = await validateMultiSourceSignal({ symbol: signal.symbol, sources: signal.sources, reasons: signal.reasons }).catch(() => null);
+        if (!verdict || verdict.confidenceScore < minConfidence) continue;
 
         const created = await createAndInsertMarket(supabase, {
           symbol: signal.symbol, ...resolved,
           reasoning: verdict.reasoning, confidence: verdict.confidenceScore,
           commitSha: null, commitMessage: signal.reasons[0] ?? ""
         });
-        if (created) { marketsCreated++; createdMarkets.push(`EXT:${signal.symbol}`); }
+        if (created) marketsCreated++;
 
       } catch (err) {
-        const msg = toMessage(err);
-        skipReasons.push(`${signal.symbol}: exception ${msg}`);
-        console.error(`External signal failed for ${signal.symbol}:`, msg);
+        console.error(`External signal failed for ${signal.symbol}:`, toMessage(err));
       }
     }
 
@@ -188,16 +181,14 @@ async function scan(request: NextRequest) {
           commitSha: null,
           commitMessage: listing.reason
         });
-        if (created) { marketsCreated++; proactiveCreated++; createdMarkets.push(`PRO:${listing.symbol}`); }
+        if (created) { marketsCreated++; proactiveCreated++; }
 
       } catch (err) {
-        const msg = toMessage(err);
-        skipReasons.push(`${listing.symbol}: exception ${msg}`);
-        console.error(`Proactive listing failed for ${listing.symbol}:`, msg);
+        console.error(`Proactive listing failed for ${listing.symbol}:`, toMessage(err));
       }
     }
 
-    return NextResponse.json({ marketsCreated, tokensScanned: [...new Set(tokensScanned)], skipReasons, createdMarkets });
+    return NextResponse.json({ marketsCreated, tokensScanned: [...new Set(tokensScanned)] });
 
   } catch (error) {
     return NextResponse.json({ error: toMessage(error) }, { status: 500 });
