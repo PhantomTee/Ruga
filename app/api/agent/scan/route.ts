@@ -135,10 +135,11 @@ async function scan(request: NextRequest) {
         const resolved = await resolvePrice(signal.symbol).catch(() => null);
         if (!resolved) { skipReasons.push(`${signal.symbol}: no price (CG+DEX miss)`); continue; }
 
+        // Use confidenceScore only — Groq's "legitimate" field is ambiguous across prompt versions
         const minConfidence = signal.sources.length >= 2 ? 55 : 70;
         const verdict = await validateMultiSourceSignal({ symbol: signal.symbol, sources: signal.sources, reasons: signal.reasons }).catch((e) => { skipReasons.push(`${signal.symbol}: groq error ${toMessage(e)}`); return null; });
         if (!verdict) continue;
-        if (!verdict.legitimate || verdict.confidenceScore < minConfidence) { skipReasons.push(`${signal.symbol}: groq reject (legit=${verdict.legitimate} conf=${verdict.confidenceScore} min=${minConfidence})`); continue; }
+        if (verdict.confidenceScore < minConfidence) { skipReasons.push(`${signal.symbol}: low conf (${verdict.confidenceScore} < ${minConfidence})`); continue; }
 
         const created = await createAndInsertMarket(supabase, {
           symbol: signal.symbol, ...resolved,
@@ -174,24 +175,15 @@ async function scan(request: NextRequest) {
         if (priceUsd <= 0) continue;
         const priceScaled = scaleUsd(priceUsd);
 
-        const verdict = await validateMultiSourceSignal({
-          symbol: listing.symbol,
-          sources: ["dexscreener"],
-          reasons: [listing.reason]
-        }).catch((e) => { skipReasons.push(`${listing.symbol}: groq error ${toMessage(e)}`); return null; });
-        if (!verdict) continue;
-        // For proactive listings: accept if Groq gives any non-trivial confidence, OR
-        // if it explicitly says it's worth a market (legitimate=true)
-        const proactivePass = verdict.legitimate && verdict.confidenceScore >= 30;
-        if (!proactivePass) { skipReasons.push(`${listing.symbol}: groq reject (legit=${verdict.legitimate} conf=${verdict.confidenceScore})`); continue; }
-
+        // Skip Groq for proactive listings — DexScreener already pre-screened for
+        // suspicious liquidity profiles. We trust the on-chain data over LLM guessing.
         const created = await createAndInsertMarket(supabase, {
           symbol: listing.symbol,
           coinId: coin?.id ?? null,
           coinName: coin?.name ?? listing.name,
           priceScaled,
-          reasoning: verdict.reasoning,
-          confidence: verdict.confidenceScore,
+          reasoning: listing.reason,
+          confidence: 50,
           commitSha: null,
           commitMessage: listing.reason
         });
