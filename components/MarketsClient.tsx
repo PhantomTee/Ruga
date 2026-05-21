@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Nav } from "./Nav";
 import { MarketCard } from "./MarketCard";
+import { CreateMarketModal } from "./CreateMarketModal";
 import type { Market } from "./types";
 
 function LoadingDots() {
@@ -39,6 +40,7 @@ function SkeletonCard() {
 export function MarketsClient() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
 
   async function load() {
     try {
@@ -60,15 +62,22 @@ export function MarketsClient() {
     <main className="min-h-screen bg-ruga-red">
       <Nav />
       <div className="px-6 py-10">
-        <h1 className="font-display leading-none text-black mb-10" style={{ fontSize: "clamp(4rem, 14vw, 12rem)" }}>
-          LIVE<br />MARKETS.
-        </h1>
+        {/* Title row */}
+        <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
+          <h1 className="font-display leading-none text-black" style={{ fontSize: "clamp(4rem, 14vw, 12rem)" }}>
+            LIVE<br />MARKETS.
+          </h1>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="font-display text-2xl bg-black text-white px-6 py-3 border-2 border-black hover:bg-ruga-dim transition-colors shrink-0 self-end mb-1"
+          >
+            + FLAG TOKEN
+          </button>
+        </div>
 
         {loading ? (
           <>
-            <p className="font-display text-3xl text-black mb-6">
-              LOADING<LoadingDots />
-            </p>
+            <p className="font-display text-3xl text-black mb-6">LOADING<LoadingDots /></p>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
             </div>
@@ -78,7 +87,7 @@ export function MarketsClient() {
             <div className="font-display text-4xl text-black mb-3">NO MARKETS YET.</div>
             <p className="font-mono text-sm text-black/60">
               The AI is watching. When a token gets flagged across multiple
-              detection sources, a market opens here automatically.
+              detection sources, a market opens here automatically. Or flag one yourself.
             </p>
           </div>
         ) : (
@@ -89,6 +98,8 @@ export function MarketsClient() {
           </div>
         )}
       </div>
+
+      {showCreate && <CreateMarketModal onClose={() => { setShowCreate(false); load(); }} />}
     </main>
   );
 }

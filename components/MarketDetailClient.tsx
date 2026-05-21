@@ -14,7 +14,7 @@ import { Nav } from "./Nav";
 import { PriceChart } from "./PriceChart";
 import { useToast } from "./Toast";
 import type { Bet, Market } from "./types";
-import { coingeckoId, marketName, marketSymbol, noPool, yesPool } from "./types";
+import { marketName, marketSymbol, noPool, yesPool } from "./types";
 
 export function MarketDetailClient({ id }: { id: string }) {
   const [market, setMarket] = useState<Market | null>(null);
@@ -250,28 +250,6 @@ export function MarketDetailClient({ id }: { id: string }) {
               </div>
             )}
 
-            <div className="mt-4 space-y-1 font-mono text-xs text-black/40">
-              {coingeckoId(market) && (
-                <a
-                  href={`https://www.coingecko.com/en/coins/${coingeckoId(market)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block underline hover:text-black"
-                >
-                  CoinGecko ↗
-                </a>
-              )}
-              {market.commit_sha && (
-                <a
-                  href={`https://github.com/iterativv/NostalgiaForInfinity/commit/${market.commit_sha}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block underline hover:text-black"
-                >
-                  GitHub commit ↗
-                </a>
-              )}
-            </div>
           </div>
 
           {/* Bet history */}
