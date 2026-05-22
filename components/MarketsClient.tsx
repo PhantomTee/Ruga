@@ -5,7 +5,14 @@ import { Nav } from "./Nav";
 import { MarketCard } from "./MarketCard";
 import { CreateMarketModal } from "./CreateMarketModal";
 import type { Market } from "./types";
-import { yesPool, noPool } from "./types";
+
+function marketYesPool(market: Market) {
+  return Number(market.yesPool ?? market.yes_pool ?? 0);
+}
+
+function marketNoPool(market: Market) {
+  return Number(market.noPool ?? market.no_pool ?? 0);
+}
 
 function LoadingDots() {
   const [count, setCount] = useState(1);
@@ -61,8 +68,8 @@ export function MarketsClient() {
     return () => window.clearInterval(t);
   }, []);
 
-  function getRiskLevel(confidence: number | null): "high" | "med" | "low" {
-    if (confidence === null) return "low";
+  function getRiskLevel(confidence: number | null | undefined): "high" | "med" | "low" {
+    if (confidence == null) return "low";
     if (confidence >= 70) return "high";
     if (confidence >= 50) return "med";
     return "low";
@@ -70,7 +77,7 @@ export function MarketsClient() {
 
   const filteredMarkets = markets.filter((market) => {
     if (riskFilter === "all") return true;
-    return getRiskLevel(market.groq_confidence ?? null) === riskFilter;
+    return getRiskLevel(market.groq_confidence) === riskFilter;
   });
 
   const sortedMarkets = [...filteredMarkets].sort((a, b) => {
@@ -78,8 +85,8 @@ export function MarketsClient() {
       return (b.groq_confidence ?? 0) - (a.groq_confidence ?? 0);
     }
     if (sortOption === "liquidity") {
-      const aLiquidity = yesPool(a) + noPool(a);
-      const bLiquidity = yesPool(b) + noPool(b);
+      const aLiquidity = marketYesPool(a) + marketNoPool(a);
+      const bLiquidity = marketYesPool(b) + marketNoPool(b);
       return bLiquidity - aLiquidity;
     }
     const aCreated = Date.parse(a.created_at || a.createdAt || "1970-01-01T00:00:00Z");
