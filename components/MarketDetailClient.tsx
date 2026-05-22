@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { BrowserProvider, Contract, type Eip1193Provider } from "ethers";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAccount, useWalletClient } from "wagmi";
+import { useAccount, useChainId, useSwitchChain, useWalletClient } from "wagmi";
 import { useModal } from "connectkit";
+import { assertArcWalletNetwork, assertContractDeployed, getArcChainId } from "@/lib/arc-wallet";
 import { RUGA_MARKET_ABI } from "@/lib/abi";
 import { CONTRACT_ADDRESS } from "@/lib/constants";
 import { formatUsd, truncateAddress } from "@/lib/format";
@@ -28,6 +29,8 @@ export function MarketDetailClient({ id }: { id: string }) {
   const [showResolution, setShowResolution] = useState(false);
   const animShown = useRef(false);
   const { address } = useAccount();
+  const chainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
   const { data: walletClient } = useWalletClient();
   const { setOpen: openConnectKit } = useModal();
   const { show: showToast } = useToast();
@@ -139,7 +142,12 @@ export function MarketDetailClient({ id }: { id: string }) {
       if (!CONTRACT_ADDRESS) throw new Error("NEXT_PUBLIC_CONTRACT_ADDRESS is not configured");
       if (!market) throw new Error("Market not loaded");
       setClaiming(true);
+      if (chainId !== getArcChainId()) {
+        await switchChainAsync({ chainId: getArcChainId() });
+      }
       const provider = new BrowserProvider(walletClient.transport as Eip1193Provider);
+      await assertArcWalletNetwork(provider);
+      await assertContractDeployed(provider, CONTRACT_ADDRESS, "RugaMarket");
       const signer = await provider.getSigner();
       const ruga = new Contract(CONTRACT_ADDRESS, RUGA_MARKET_ABI, signer);
       const tx = await ruga.claimWinnings(market.on_chain_id || market.id);

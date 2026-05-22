@@ -3,8 +3,9 @@
 import confetti from "canvas-confetti";
 import { BrowserProvider, Contract, MaxUint256, parseUnits, type Eip1193Provider } from "ethers";
 import { useState } from "react";
-import { useAccount, useWalletClient } from "wagmi";
+import { useAccount, useChainId, useSwitchChain, useWalletClient } from "wagmi";
 import { useModal } from "connectkit";
+import { assertArcWalletNetwork, assertContractDeployed, getArcChainId } from "@/lib/arc-wallet";
 import { ERC20_ABI, RUGA_MARKET_ABI } from "@/lib/abi";
 import { CONTRACT_ADDRESS, USDC_ADDRESS } from "@/lib/constants";
 import { useToast } from "./Toast";
@@ -44,6 +45,8 @@ export function BetModal({
   onSuccess: () => void;
 }) {
   const { address } = useAccount();
+  const chainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
   const { data: walletClient } = useWalletClient();
   const { setOpen: openConnectKit } = useModal();
   const { show: showToast } = useToast();
@@ -92,7 +95,15 @@ export function BetModal({
       }
 
       const parsed = parseUnits(amount.trim(), 6);
+      if (chainId !== getArcChainId()) {
+        await switchChainAsync({ chainId: getArcChainId() });
+      }
       const provider = new BrowserProvider(walletClient.transport as Eip1193Provider);
+      await assertArcWalletNetwork(provider);
+      await Promise.all([
+        assertContractDeployed(provider, USDC_ADDRESS, "Arc USDC"),
+        assertContractDeployed(provider, CONTRACT_ADDRESS, "RugaMarket")
+      ]);
       const signer = await provider.getSigner();
       const usdc = new Contract(USDC_ADDRESS, ERC20_ABI, signer);
       const ruga = new Contract(CONTRACT_ADDRESS, RUGA_MARKET_ABI, signer);

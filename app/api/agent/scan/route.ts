@@ -13,6 +13,57 @@ import { toMessage } from "@/lib/errors";
 
 const COMMUNITY_REPOS = ["freqtrade/freqtrade-strategies"];
 
+/**
+ * Symbols that should never get a rug-or-hodl market:
+ *  - Stablecoins (can't rug by design)
+ *  - Top L1/L2 chains and blue-chip DeFi (too established, misleading for users)
+ *  - Wrapped/bridged versions of major assets
+ *
+ * All checked uppercase. We also substring-block anything containing
+ * "USD", "DAI", "EUR" so bridged variants (PUSDC, USDC.E, etc.) are caught.
+ */
+const BLOCKED_SYMBOLS = new Set([
+  // ── Stablecoins ─────────────────────────────────────────────────────────
+  "USDC","USDT","DAI","BUSD","TUSD","FRAX","LUSD","USDP","GUSD","USDD",
+  "FDUSD","PYUSD","RLUSD","USDB","SUSD","USDX","USDQ","MUSD","USDJ",
+  "USDN","HUSD","XUSD","EURS","EURT","GYEN","EURC","CEUR","CUSD","USDBC",
+  "PUSDC","USDCE","USDC.E","XDAI","AGEUR","CADC","BIDR","BKRW","IDRT",
+  "BRCP","MIM","OUSD","DOLA","CRVUSD","GHO","BOLD","LISUSD","MKUSD",
+  // ── Wrapped / bridged majors ─────────────────────────────────────────────
+  "WBTC","WETH","WBNB","WSOL","WAVAX","WMATIC","WPOL","WFTM","WONE",
+  "WCELO","WGLMR","WKAVA","RENBTC","HBTC","STBTC","SBTC","CBBTC",
+  "WEETH","WSTETH","RETH","CBETH","STETH","FRXETH","SFRXETH","EZETH",
+  "RSETH","EETH","METH","OSETH","ANKRETH",
+  // ── Bitcoin ──────────────────────────────────────────────────────────────
+  "BTC","XBT","BCH","BSV","BTG","LBTC",
+  // ── Major L1 / L2 / infrastructure ──────────────────────────────────────
+  "ETH","BNB","SOL","ADA","XRP","TRX","TON","AVAX","MATIC","POL",
+  "DOT","ATOM","NEAR","FTM","ONE","CELO","GLMR","ALGO","HBAR","EGLD",
+  "ICP","APT","SUI","SEI","INJ","KAVA","OSMO","JUNO","EVMOS","STARS",
+  "MINA","FLOW","ROSE","ZIL","VET","THETA","FIL","AR","HNT","IOTX",
+  "STRK","ZKSYNC","ZK","OP","ARB","METIS","MANTA","BLAST","SCROLL",
+  "BASE","LINEA","TAIKO","MODE","MANTLE","MNT","BERA","MONAD",
+  // ── Major DeFi blue chips ────────────────────────────────────────────────
+  "LINK","UNI","AAVE","MKR","CRV","SNX","COMP","SUSHI","YFI","BAL",
+  "RUNE","CAKE","JOE","GMX","GNS","PENDLE","LDO","RPL","FXS","CVX",
+  "ONDO","ENA","EIGEN","SKY","ETHFI","USUAL","RESOLV","EULER","FLUID",
+  "MORPHO","KAMINO","MARGINFI","JITO","DRIFT","RAYDIUM","RAY",
+  // ── Exchange / CEX tokens ────────────────────────────────────────────────
+  "OKB","HT","KCS","CRO","FTT","GT","LEO","BGB","MX","WBT",
+  // ── Liquid staking / restaking (established) ────────────────────────────
+  "LIDO","LDO","ROCKET","RPL","SWISE","SSV","DVT",
+]);
+
+/** Substring patterns — any symbol containing these strings is blocked. */
+const BLOCKED_SUBSTRINGS = ["USD","DAI","EUR","BTC","ETH","USDC","USDT"];
+
+function isBlockedSymbol(symbol: string): boolean {
+  const upper = symbol.toUpperCase();
+  if (BLOCKED_SYMBOLS.has(upper)) return true;
+  // Catch variants like PUSDC, USDC.E, WBTC2, RETH2, etc.
+  return BLOCKED_SUBSTRINGS.some(sub => upper.includes(sub));
+}
+
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 

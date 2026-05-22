@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useAccount, useWalletClient } from "wagmi";
+import { useAccount, useChainId, useSwitchChain, useWalletClient } from "wagmi";
 import { useModal } from "connectkit";
+import { assertArcWalletNetwork, assertContractDeployed, getArcChainId } from "@/lib/arc-wallet";
 import { BrowserProvider, Contract, Interface, type Eip1193Provider } from "ethers";
 import { RUGA_MARKET_ABI } from "@/lib/abi";
 import { CONTRACT_ADDRESS, PRICE_SCALE } from "@/lib/constants";
@@ -46,6 +47,8 @@ export function CreateMarketModal({ onClose }: { onClose: () => void }) {
   const [errorMsg, setErrorMsg] = useState("");
 
   const { address } = useAccount();
+  const chainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
   const { data: walletClient } = useWalletClient();
   const { setOpen: openConnectKit } = useModal();
   const router = useRouter();
@@ -91,7 +94,12 @@ export function CreateMarketModal({ onClose }: { onClose: () => void }) {
       const priceScaled = BigInt(Math.round(token.priceUsd * PRICE_SCALE));
 
       // User signs the createMarket TX
+      if (chainId !== getArcChainId()) {
+        await switchChainAsync({ chainId: getArcChainId() });
+      }
       const provider = new BrowserProvider(walletClient.transport as Eip1193Provider);
+      await assertArcWalletNetwork(provider);
+      await assertContractDeployed(provider, CONTRACT_ADDRESS, "RugaMarket");
       const signer = await provider.getSigner();
       const contract = new Contract(CONTRACT_ADDRESS, RUGA_MARKET_ABI, signer);
 

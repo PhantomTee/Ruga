@@ -130,3 +130,23 @@ test("schema includes market creation locks and status migrations", () => {
   assert.match(schema, /drop constraint if exists/);
   assert.match(schema, /commits_processed_status_check/);
 });
+
+test("client wallet writes require Arc network and deployed contract code", () => {
+  const helper = fs.readFileSync("lib/arc-wallet.ts", "utf8");
+  assert.match(helper, /assertArcWalletNetwork/);
+  assert.match(helper, /provider\.getCode\(address\)/);
+
+  for (const file of [
+    "components/BetModal.tsx",
+    "components/MarketDetailClient.tsx",
+    "components/CreateMarketModal.tsx"
+  ]) {
+    const source = fs.readFileSync(file, "utf8");
+    assert.match(source, /switchChainAsync\(\{ chainId: getArcChainId\(\) \}\)/, `${file} must switch to Arc`);
+    assert.match(source, /assertArcWalletNetwork\(provider\)/, `${file} must verify active wallet chain`);
+    assert.match(source, /assertContractDeployed\(provider, CONTRACT_ADDRESS, "RugaMarket"\)/, `${file} must verify Ruga contract code`);
+  }
+
+  const betModal = fs.readFileSync("components/BetModal.tsx", "utf8");
+  assert.match(betModal, /assertContractDeployed\(provider, USDC_ADDRESS, "Arc USDC"\)/);
+});
