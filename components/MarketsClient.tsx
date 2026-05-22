@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Nav } from "./Nav";
 import { MarketCard } from "./MarketCard";
 import { CreateMarketModal } from "./CreateMarketModal";
@@ -52,21 +52,39 @@ export function MarketsClient() {
   const [riskFilter, setRiskFilter] = useState<"all" | "high" | "med" | "low">("all");
   const [sortOption, setSortOption] = useState<"newest" | "risk" | "liquidity">("newest");
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/markets", { cache: "no-store" });
+      const res = await fetch(`/api/markets?ts=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "cache-control": "no-cache" }
+      });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load markets");
       setMarkets(data.markets || []);
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     load();
-    const t = window.setInterval(load, 30_000);
-    return () => window.clearInterval(t);
-  }, []);
+    const onRefresh = () => load();
+    const t = window.setInterval(onRefresh, 5_000);
+    window.addEventListener("focus", onRefresh);
+    window.addEventListener("ruga:bet-recorded", onRefresh);
+    const channel = "BroadcastChannel" in window ? new BroadcastChannel("ruga-live") : null;
+    if (channel) {
+      channel.onmessage = (event) => {
+        if (["bet-recorded", "market-created", "scan-complete"].includes(event.data?.type)) onRefresh();
+      };
+    }
+    return () => {
+      window.clearInterval(t);
+      window.removeEventListener("focus", onRefresh);
+      window.removeEventListener("ruga:bet-recorded", onRefresh);
+      channel?.close();
+    };
+  }, [load]);
 
   function getRiskLevel(confidence: number | null | undefined): "high" | "med" | "low" {
     if (confidence == null) return "low";

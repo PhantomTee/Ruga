@@ -133,6 +133,13 @@ export function BetModal({
       setStep("done");
       confetti({ particleCount: 140, spread: 70, origin: { y: 0.72 }, colors: ["#FF1515", "#000000", "#FFFFFF"] });
       showToast(`${amount} USDC on ${side.toUpperCase()} — bet placed! ✓`);
+      const eventDetail = { marketId: market.id, side, amount };
+      window.dispatchEvent(new CustomEvent("ruga:bet-recorded", { detail: eventDetail }));
+      if ("BroadcastChannel" in window) {
+        const channel = new BroadcastChannel("ruga-live");
+        channel.postMessage({ type: "bet-recorded", ...eventDetail });
+        channel.close();
+      }
       onSuccess();
     } catch (err) {
       setError(decodeError(err));

@@ -53,7 +53,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       }
     }
 
-    return NextResponse.json({ market: { ...market, ...onChain, display_id: displayId || null }, bets: bets || [], chart });
+    return NextResponse.json(
+      { market: { ...market, ...onChain, display_id: displayId || null }, bets: bets || [], chart },
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    );
   } catch (error) {
     const message = toMessage(error);
     return NextResponse.json({ error: message }, { status: 500 });

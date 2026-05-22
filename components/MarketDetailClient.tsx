@@ -36,7 +36,10 @@ export function MarketDetailClient({ id }: { id: string }) {
   const { show: showToast } = useToast();
 
   const load = useCallback(async () => {
-    const response = await fetch(`/api/markets/${id}`, { cache: "no-store" });
+    const response = await fetch(`/api/markets/${id}?ts=${Date.now()}`, {
+      cache: "no-store",
+      headers: { "cache-control": "no-cache" }
+    });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || "Failed to load market");
     setMarket(payload.market);
@@ -46,6 +49,25 @@ export function MarketDetailClient({ id }: { id: string }) {
 
   useEffect(() => {
     load().catch((err) => setError(err instanceof Error ? err.message : "Failed to load market"));
+  }, [load]);
+
+  useEffect(() => {
+    const onRefresh = () => load().catch(() => {});
+    const t = window.setInterval(onRefresh, 5_000);
+    window.addEventListener("focus", onRefresh);
+    window.addEventListener("ruga:bet-recorded", onRefresh);
+    const channel = "BroadcastChannel" in window ? new BroadcastChannel("ruga-live") : null;
+    if (channel) {
+      channel.onmessage = (event) => {
+        if (["bet-recorded", "market-resolved"].includes(event.data?.type)) onRefresh();
+      };
+    }
+    return () => {
+      window.clearInterval(t);
+      window.removeEventListener("focus", onRefresh);
+      window.removeEventListener("ruga:bet-recorded", onRefresh);
+      channel?.close();
+    };
   }, [load]);
 
   // Show resolution animation once per market per session

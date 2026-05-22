@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Nav } from "./Nav";
 import { formatUsd, timeAgoShort, truncateAddress } from "@/lib/format";
 import { useAccount } from "wagmi";
@@ -33,8 +33,11 @@ export function ActivityClient() {
   const prevIds = useRef<Set<string>>(new Set());
   const { address } = useAccount();
 
-  function load() {
-    return fetch("/api/activity?limit=50")
+  const load = useCallback(() => {
+    return fetch(`/api/activity?limit=50&ts=${Date.now()}`, {
+      cache: "no-store",
+      headers: { "cache-control": "no-cache" }
+    })
       .then((r) => r.json())
       .then((d) => {
         const items: ActivityItem[] = d.activity || [];
@@ -49,14 +52,27 @@ export function ActivityClient() {
         setActivity(items);
       })
       .finally(() => setLoading(false));
-  }
+  }, []);
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 10_000);
-    return () => clearInterval(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const onRefresh = () => load();
+    const t = setInterval(onRefresh, 5_000);
+    window.addEventListener("focus", onRefresh);
+    window.addEventListener("ruga:bet-recorded", onRefresh);
+    const channel = "BroadcastChannel" in window ? new BroadcastChannel("ruga-live") : null;
+    if (channel) {
+      channel.onmessage = (event) => {
+        if (event.data?.type === "bet-recorded") onRefresh();
+      };
+    }
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("focus", onRefresh);
+      window.removeEventListener("ruga:bet-recorded", onRefresh);
+      channel?.close();
+    };
+  }, [load]);
 
   return (
     <main className="min-h-screen bg-ruga-red">
@@ -68,7 +84,7 @@ export function ActivityClient() {
           </h1>
           <div className="font-mono text-xs text-black/50 self-end mb-2 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-black animate-pulse inline-block" />
-            updates every 10s
+            updates every 5s
           </div>
         </div>
 

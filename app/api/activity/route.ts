@@ -19,7 +19,10 @@ export async function GET(request: NextRequest) {
     if (betsError) throw betsError;
 
     if (!bets || bets.length === 0) {
-      return NextResponse.json({ activity: [] });
+      return NextResponse.json(
+        { activity: [] },
+        { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+      );
     }
 
     // Fetch market symbols for those market IDs
@@ -46,7 +49,10 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ activity });
+    return NextResponse.json(
+      { activity },
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    );
   } catch (error) {
     return NextResponse.json({ error: toMessage(error) }, { status: 500 });
   }

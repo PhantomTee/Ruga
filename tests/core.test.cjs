@@ -169,3 +169,35 @@ test("market UI uses display ids and refreshes after manual flagging", () => {
   const detailClient = fs.readFileSync("components/MarketDetailClient.tsx", "utf8");
   assert.match(detailClient, /market\.display_id \?\? market\.id/);
 });
+
+test("live views bypass cache and refresh after bets", () => {
+  for (const file of [
+    "app/api/activity/route.ts",
+    "app/api/bets/route.ts",
+    "app/api/feed/route.ts",
+    "app/api/markets/route.ts",
+    "app/api/markets/[id]/route.ts"
+  ]) {
+    const source = fs.readFileSync(file, "utf8");
+    assert.match(source, /no-store, no-cache, must-revalidate/, `${file} must prevent stale polling responses`);
+  }
+
+  const feedRoute = fs.readFileSync("app/api/feed/route.ts", "utf8");
+  assert.match(feedRoute, /market_created/);
+  assert.match(feedRoute, /tokens_found: \[market\.token_symbol\]/);
+
+  const betModal = fs.readFileSync("components/BetModal.tsx", "utf8");
+  assert.match(betModal, /ruga:bet-recorded/);
+  assert.match(betModal, /BroadcastChannel\("ruga-live"\)/);
+
+  for (const file of [
+    "components/ActivityClient.tsx",
+    "components/MarketsClient.tsx",
+    "components/MarketDetailClient.tsx"
+  ]) {
+    const source = fs.readFileSync(file, "utf8");
+    assert.match(source, /cache: "no-store"/, `${file} must bypass fetch cache`);
+    assert.match(source, /ruga:bet-recorded/, `${file} must refresh after bets`);
+    assert.match(source, /5_000/, `${file} must poll frequently enough for live updates`);
+  }
+});

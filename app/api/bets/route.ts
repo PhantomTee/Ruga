@@ -17,7 +17,10 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return NextResponse.json({ bets: data || [] });
+    return NextResponse.json(
+      { bets: data || [] },
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    );
   } catch (error) {
     return NextResponse.json({ error: toMessage(error) }, { status: 500 });
   }
@@ -83,7 +86,10 @@ export async function POST(request: NextRequest) {
     const { error: poolError } = await supabase.from("markets").update(update).eq("id", body.marketId);
     if (poolError) throw poolError;
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json(
+      { ok: true },
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    );
   } catch (error) {
     const message = toMessage(error);
     return NextResponse.json({ error: message }, { status: 500 });

@@ -25,8 +25,9 @@ export async function GET() {
 
     const resolvedCount = resolved.length;
     const ruggedCount = resolved.filter((market) => market.outcome === true).length;
-    const signalCount = commits.filter((commit) => ["signal_found", "market_created"].includes(commit.status)).length;
-    const createdCount = commits.filter((commit) => commit.status === "market_created").length;
+    const signalCount =
+      commits.filter((commit) => ["signal_found", "market_created"].includes(commit.status)).length +
+      markets.filter((market) => !market.commit_sha).length;
     const recentGroqLogs = [...markets]
       .filter((market) => market.groq_reasoning)
       .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
@@ -39,18 +40,22 @@ export async function GET() {
         createdAt: market.created_at
       }));
 
-    const lastScan = commits.sort((a, b) => Date.parse(b.processed_at) - Date.parse(a.processed_at))[0];
+    const lastCommit = [...commits].sort((a, b) => Date.parse(b.processed_at) - Date.parse(a.processed_at))[0];
+    const lastMarket = [...markets].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
+    const lastActivityTime = [lastCommit?.processed_at, lastMarket?.created_at]
+      .filter(Boolean)
+      .sort((a, b) => Date.parse(String(b)) - Date.parse(String(a)))[0] as string | undefined;
     return NextResponse.json({
-      lastScanTime: lastScan?.processed_at || null,
-      nextScanTime: lastScan ? new Date(Date.parse(lastScan.processed_at) + 5 * 60 * 1000).toISOString() : null,
+      lastScanTime: lastActivityTime || null,
+      nextScanTime: lastActivityTime ? new Date(Date.parse(lastActivityTime) + 5 * 60 * 1000).toISOString() : null,
       commitsScannedToday: commits.length,
       signalsFoundToday: signalCount,
-      marketsCreatedToday: createdCount || markets.length,
+      marketsCreatedToday: markets.length,
       resolvedMarkets: resolvedCount,
       ruggedResolvedMarkets: ruggedCount,
       accuracyRate: resolvedCount > 0 ? Math.round((ruggedCount / resolvedCount) * 10000) / 100 : null,
       recentGroqLogs
-    });
+    }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } });
   } catch (error) {
     const message = toMessage(error);
     return NextResponse.json({ error: message }, { status: 500 });
