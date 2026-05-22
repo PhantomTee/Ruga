@@ -99,7 +99,7 @@ export function MarketsClient() {
         )}
       </div>
 
-      {showCreate && <CreateMarketModal onClose={() => { setShowCreate(false); load(); }} />}
+      {showCreate && <CreateMarketModal onCreated={load} onClose={() => { setShowCreate(false); load(); }} />}
     </main>
   );
 }

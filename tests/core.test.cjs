@@ -150,3 +150,22 @@ test("client wallet writes require Arc network and deployed contract code", () =
   const betModal = fs.readFileSync("components/BetModal.tsx", "utf8");
   assert.match(betModal, /assertContractDeployed\(provider, USDC_ADDRESS, "Arc USDC"\)/);
 });
+
+test("market UI uses display ids and refreshes after manual flagging", () => {
+  const listRoute = fs.readFileSync("app/api/markets/route.ts", "utf8");
+  assert.match(listRoute, /display_id/);
+  assert.match(listRoute, /Date\.parse\(a\.created_at\)/);
+
+  const detailRoute = fs.readFileSync("app/api/markets/[id]/route.ts", "utf8");
+  assert.match(detailRoute, /display_id: displayId/);
+
+  const marketsClient = fs.readFileSync("components/MarketsClient.tsx", "utf8");
+  assert.match(marketsClient, /<CreateMarketModal onCreated=\{load\}/);
+
+  const createModal = fs.readFileSync("components/CreateMarketModal.tsx", "utf8");
+  assert.match(createModal, /onCreated\?\.\(\)/);
+  assert.doesNotMatch(createModal, /Market #\{createdMarketId\}/);
+
+  const detailClient = fs.readFileSync("components/MarketDetailClient.tsx", "utf8");
+  assert.match(detailClient, /market\.display_id \?\? market\.id/);
+});

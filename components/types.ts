@@ -1,6 +1,7 @@
 export type Market = {
   id: number;
   on_chain_id: number;
+  display_id?: number | null;
   token_symbol?: string;
   tokenSymbol?: string;
   token_name?: string | null;

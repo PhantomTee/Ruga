@@ -21,6 +21,15 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       .order("created_at", { ascending: false });
     if (betsError) throw betsError;
 
+    const { data: marketOrder, error: orderError } = await supabase
+      .from("markets")
+      .select("id,created_at")
+      .gte("created_at", "2020-01-01T00:00:00Z")
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
+    if (orderError) throw orderError;
+    const displayId = (marketOrder || []).findIndex((row) => String(row.id) === String(market.id)) + 1;
+
     if (!CONTRACT_ADDRESS) throw new Error("NEXT_PUBLIC_CONTRACT_ADDRESS is required for on-chain market detail");
     const onChain = await getOnChainMarket(Number(market.on_chain_id), wallet);
 
@@ -44,7 +53,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       }
     }
 
-    return NextResponse.json({ market: { ...market, ...onChain }, bets: bets || [], chart });
+    return NextResponse.json({ market: { ...market, ...onChain, display_id: displayId || null }, bets: bets || [], chart });
   } catch (error) {
     const message = toMessage(error);
     return NextResponse.json({ error: message }, { status: 500 });

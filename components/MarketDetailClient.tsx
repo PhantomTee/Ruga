@@ -194,7 +194,7 @@ export function MarketDetailClient({ id }: { id: string }) {
           {/* Title block */}
           <div className="border-2 border-black bg-white p-6">
             <div className="flex items-start justify-between gap-2">
-              <div className="font-mono text-xs text-black/40 uppercase">Market #{market.id}</div>
+              <div className="font-mono text-xs text-black/40 uppercase">Market #{market.display_id ?? market.id}</div>
               <button
                 onClick={shareMarket}
                 className="font-mono text-xs text-black/40 hover:text-black transition-colors underline underline-offset-2 shrink-0"

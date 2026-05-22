@@ -14,6 +14,7 @@ type StatusData = {
 type ResolvedMarket = {
   id: number;
   on_chain_id: number;
+  display_id?: number | null;
   token_symbol: string;
   outcome: boolean | null;
   resolves_at: string | null;
@@ -125,7 +126,7 @@ export function StatusClient() {
                         {m.outcome ? "RUGGED" : "SURVIVED"}
                       </div>
                       <div className="font-mono text-xs text-black/40">
-                        Market #{m.on_chain_id ?? m.id}
+                        Market #{m.display_id ?? m.id}
                       </div>
                       {CONTRACT_ADDRESS && (
                         <a

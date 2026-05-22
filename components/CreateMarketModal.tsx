@@ -38,7 +38,7 @@ function fmtUsd(n: number) {
   return `$${n.toFixed(2)}`;
 }
 
-export function CreateMarketModal({ onClose }: { onClose: () => void }) {
+export function CreateMarketModal({ onClose, onCreated }: { onClose: () => void; onCreated?: () => void }) {
   const [url, setUrl] = useState("");
   const [state, setState] = useState<State>("idle");
   const [token, setToken] = useState<TokenInfo | null>(null);
@@ -158,6 +158,7 @@ export function CreateMarketModal({ onClose }: { onClose: () => void }) {
 
       setCreatedMarketId(regData.marketId ?? marketId);
       setState("created");
+      onCreated?.();
     } catch (err) {
       const raw = JSON.stringify(err);
       const rejected = raw.includes("4001") || raw.includes("rejected") || raw.includes("denied");
@@ -343,9 +344,7 @@ export function CreateMarketModal({ onClose }: { onClose: () => void }) {
                   <span className="font-bold text-black">${token.symbol}</span> is now live on-chain.
                   7 days to find out if it rugs.
                 </p>
-                {createdMarketId !== null && (
-                  <div className="font-mono text-xs text-black/30 mt-2">Market #{createdMarketId}</div>
-                )}
+                <div className="font-mono text-xs text-black/30 mt-2">Added to live markets.</div>
               </div>
               <button
                 onClick={() => goToMarket(createdMarketId)}
