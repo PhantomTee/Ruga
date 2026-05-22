@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { getOnChainMarket } from "@/lib/chain";
 import { toMessage } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ export async function GET() {
     const supabase = getSupabaseAdmin();
 
     const [marketsResult, betsResult] = await Promise.all([
-      supabase.from("markets").select("yes_pool,no_pool").gte("created_at", "2020-01-01T00:00:00Z"),
+      supabase.from("markets").select("id,on_chain_id").gte("created_at", "2020-01-01T00:00:00Z"),
       supabase.from("bets").select("wallet_address,amount").gte("created_at", "2020-01-01T00:00:00Z")
     ]);
 
@@ -19,9 +20,21 @@ export async function GET() {
     const markets = marketsResult.data || [];
     const bets = betsResult.data || [];
 
-    const totalWagered = markets.reduce((sum, m) => {
-      return sum + Number(m.yes_pool || 0) + Number(m.no_pool || 0);
-    }, 0);
+    // Fetch on-chain pool data for all markets in parallel with timeout
+    const timeoutPromise = (promise: Promise<any>, ms: number) =>
+      Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), ms))
+      ]);
+
+    const onChainPromises = markets.map((market) =>
+      timeoutPromise(getOnChainMarket(Number(market.on_chain_id)), 5000)
+        .then((onChain) => ({ success: true, yesPool: Number(onChain.yesPool || 0), noPool: Number(onChain.noPool || 0) }))
+        .catch(() => ({ success: false, yesPool: 0, noPool: 0 }))
+    );
+
+    const results = await Promise.all(onChainPromises);
+    const totalWagered = results.reduce((sum, r) => sum + r.yesPool + r.noPool, 0);
 
     const uniqueBettors = new Set(bets.map((b) => b.wallet_address.toLowerCase())).size;
     const totalBets = bets.length;

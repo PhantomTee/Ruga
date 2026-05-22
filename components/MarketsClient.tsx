@@ -5,6 +5,7 @@ import { Nav } from "./Nav";
 import { MarketCard } from "./MarketCard";
 import { CreateMarketModal } from "./CreateMarketModal";
 import type { Market } from "./types";
+import { yesPool, noPool } from "./types";
 
 function LoadingDots() {
   const [count, setCount] = useState(1);
@@ -41,6 +42,8 @@ export function MarketsClient() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [riskFilter, setRiskFilter] = useState<"all" | "high" | "med" | "low">("all");
+  const [sortOption, setSortOption] = useState<"newest" | "risk" | "liquidity">("newest");
 
   async function load() {
     try {
@@ -57,6 +60,32 @@ export function MarketsClient() {
     const t = window.setInterval(load, 30_000);
     return () => window.clearInterval(t);
   }, []);
+
+  function getRiskLevel(confidence: number | null): "high" | "med" | "low" {
+    if (confidence === null) return "low";
+    if (confidence >= 70) return "high";
+    if (confidence >= 50) return "med";
+    return "low";
+  }
+
+  const filteredMarkets = markets.filter((market) => {
+    if (riskFilter === "all") return true;
+    return getRiskLevel(market.groq_confidence ?? null) === riskFilter;
+  });
+
+  const sortedMarkets = [...filteredMarkets].sort((a, b) => {
+    if (sortOption === "risk") {
+      return (b.groq_confidence ?? 0) - (a.groq_confidence ?? 0);
+    }
+    if (sortOption === "liquidity") {
+      const aLiquidity = yesPool(a) + noPool(a);
+      const bLiquidity = yesPool(b) + noPool(b);
+      return bLiquidity - aLiquidity;
+    }
+    const aCreated = Date.parse(a.created_at || a.createdAt || "1970-01-01T00:00:00Z");
+    const bCreated = Date.parse(b.created_at || b.createdAt || "1970-01-01T00:00:00Z");
+    return bCreated - aCreated;
+  });
 
   return (
     <main className="min-h-screen bg-ruga-red">
@@ -75,6 +104,48 @@ export function MarketsClient() {
           </button>
         </div>
 
+        {!loading && markets.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 mb-8">
+            <div className="flex flex-wrap gap-2">
+              {(["all", "high", "med", "low"] as const).map((filter) => {
+                const isActive = riskFilter === filter;
+                const label = filter === "all" ? "ALL RISKS" : filter === "high" ? "HIGH RISK" : filter === "med" ? "MED RISK" : "LOW RISK";
+                const base = "font-mono text-xs px-4 py-2 border-2 border-black transition-colors";
+                const activeClass =
+                  filter === "high"
+                    ? "bg-ruga-red text-white"
+                    : filter === "med"
+                    ? "bg-amber-500 text-white"
+                    : filter === "low"
+                    ? "bg-black text-white"
+                    : "bg-black text-white";
+                return (
+                  <button
+                    key={filter}
+                    onClick={() => setRiskFilter(filter)}
+                    className={`${base} ${isActive ? activeClass : "bg-white text-black hover:bg-black/5"}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <label className="font-mono text-xs text-black/40 uppercase">Sort</label>
+              <select
+                value={sortOption}
+                onChange={(event) => setSortOption(event.target.value as "newest" | "risk" | "liquidity")}
+                className="font-mono text-xs border-2 border-black bg-white px-3 py-2"
+              >
+                <option value="newest">Newest</option>
+                <option value="risk">Highest Risk</option>
+                <option value="liquidity">Most Liquidity</option>
+              </select>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <>
             <p className="font-display text-3xl text-black mb-6">LOADING<LoadingDots /></p>
@@ -90,9 +161,16 @@ export function MarketsClient() {
               detection sources, a market opens here automatically. Or flag one yourself.
             </p>
           </div>
+        ) : sortedMarkets.length === 0 ? (
+          <div className="border-2 border-black bg-white p-10 max-w-lg">
+            <div className="font-display text-4xl text-black mb-3">NO {riskFilter.toUpperCase()} RISK MARKETS.</div>
+            <p className="font-mono text-sm text-black/60">
+              Try a different risk filter to see other markets.
+            </p>
+          </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {markets.map((market) => (
+            {sortedMarkets.map((market) => (
               <MarketCard key={market.id} market={market} onRefresh={load} />
             ))}
           </div>
