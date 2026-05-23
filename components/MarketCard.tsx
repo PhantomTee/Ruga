@@ -17,6 +17,7 @@ export function MarketCard({ market, onRefresh }: { market: Market; onRefresh: (
   const total = yes + no;
   const yesPct = total ? Math.round((yes / total) * 100) : 50;
   const noPct = 100 - yesPct;
+  const yesWidth = Math.min(100, Math.max(0, yesPct));
 
   useEffect(() => {
     const interval = window.setInterval(() => setRemaining(secondsRemaining(resolvesAt(market))), 1000);
@@ -51,8 +52,15 @@ export function MarketCard({ market, onRefresh }: { market: Market; onRefresh: (
 
       {/* Pool bar */}
       <div className="px-4 py-3 border-b-2 border-black">
-        <div className="h-2 bg-black/10 w-full">
-          <div className="h-full bg-black transition-all" style={{ width: `${yesPct}%` }} />
+        <div
+          className="relative h-4 w-full overflow-hidden border border-black/60 bg-white shadow-[inset_2px_2px_0_rgba(0,0,0,0.18),inset_-1px_-1px_0_rgba(255,255,255,0.7)]"
+          aria-label={`YES pool ${yesPct} percent, NO pool ${noPct} percent`}
+        >
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(0,0,0,0.08)_25%,transparent_25%,transparent_50%,rgba(0,0,0,0.08)_50%,rgba(0,0,0,0.08)_75%,transparent_75%,transparent)] bg-[length:10px_10px]" />
+          <div
+            className="relative h-full border-r border-black/50 bg-[linear-gradient(180deg,#3a3a3a_0%,#050505_45%,#000_46%,#1a1a1a_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.35),inset_0_-2px_0_rgba(0,0,0,0.45),2px_0_0_rgba(255,49,49,0.35)] transition-[width] duration-300 ease-out"
+            style={{ width: `${yesWidth}%`, borderRightWidth: yesWidth === 0 || yesWidth === 100 ? 0 : 1 }}
+          />
         </div>
         <div className="flex justify-between mt-2 font-mono text-xs text-black/60">
           <span>YES {yesPct}% · {yes.toFixed(0)} USDC</span>

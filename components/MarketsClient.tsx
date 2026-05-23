@@ -14,6 +14,19 @@ function marketNoPool(market: Market) {
   return Number(market.noPool ?? market.no_pool ?? 0);
 }
 
+function applyBetToMarket(market: Market, side: "yes" | "no", amount: string | number): Market {
+  const delta = Number(amount);
+  if (!Number.isFinite(delta) || delta <= 0) return market;
+
+  if (side === "yes") {
+    const next = marketYesPool(market) + delta;
+    return { ...market, yes_pool: next.toString(), yesPool: market.yesPool == null ? market.yesPool : next.toString() };
+  }
+
+  const next = marketNoPool(market) + delta;
+  return { ...market, no_pool: next.toString(), noPool: market.noPool == null ? market.noPool : next.toString() };
+}
+
 function LoadingDots() {
   const [count, setCount] = useState(1);
   useEffect(() => {
@@ -66,25 +79,43 @@ export function MarketsClient() {
     }
   }, []);
 
+  const applyRecordedBet = useCallback((detail: unknown) => {
+    const payload = detail as { marketId?: number; side?: "yes" | "no"; amount?: string | number };
+    if (!payload?.marketId || !payload.side || payload.amount == null) return;
+    setMarkets((current) =>
+      current.map((market) =>
+        Number(market.id) === Number(payload.marketId)
+          ? applyBetToMarket(market, payload.side!, payload.amount!)
+          : market
+      )
+    );
+  }, []);
+
   useEffect(() => {
     load();
-    const onRefresh = () => load();
+    const refreshFromServer = () => load();
+    const onRefresh = () => refreshFromServer();
+    const onBetRecorded = (event: Event) => {
+      applyRecordedBet((event as CustomEvent).detail);
+      refreshFromServer();
+    };
     const t = window.setInterval(onRefresh, 5_000);
     window.addEventListener("focus", onRefresh);
-    window.addEventListener("ruga:bet-recorded", onRefresh);
+    window.addEventListener("ruga:bet-recorded", onBetRecorded);
     const channel = "BroadcastChannel" in window ? new BroadcastChannel("ruga-live") : null;
     if (channel) {
       channel.onmessage = (event) => {
-        if (["bet-recorded", "market-created", "scan-complete"].includes(event.data?.type)) onRefresh();
+        if (event.data?.type === "bet-recorded") applyRecordedBet(event.data);
+        if (["bet-recorded", "market-created", "scan-complete"].includes(event.data?.type)) refreshFromServer();
       };
     }
     return () => {
       window.clearInterval(t);
       window.removeEventListener("focus", onRefresh);
-      window.removeEventListener("ruga:bet-recorded", onRefresh);
+      window.removeEventListener("ruga:bet-recorded", onBetRecorded);
       channel?.close();
     };
-  }, [load]);
+  }, [applyRecordedBet, load]);
 
   function getRiskLevel(confidence: number | null | undefined): "high" | "med" | "low" {
     if (confidence == null) return "low";

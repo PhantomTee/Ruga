@@ -200,4 +200,13 @@ test("live views bypass cache and refresh after bets", () => {
     assert.match(source, /ruga:bet-recorded/, `${file} must refresh after bets`);
     assert.match(source, /5_000/, `${file} must poll frequently enough for live updates`);
   }
+
+  const marketsClient = fs.readFileSync("components/MarketsClient.tsx", "utf8");
+  assert.match(marketsClient, /applyBetToMarket/);
+  assert.match(marketsClient, /applyRecordedBet/);
+
+  const marketCard = fs.readFileSync("components/MarketCard.tsx", "utf8");
+  assert.match(marketCard, /shadow-\[inset_2px_2px_0/);
+  assert.match(marketCard, /transition-\[width\] duration-300/);
+  assert.match(marketCard, /aria-label=\{`YES pool/);
 });
