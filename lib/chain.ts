@@ -1,6 +1,6 @@
-import { Contract, Interface, JsonRpcProvider, Wallet, formatUnits } from "ethers";
-import { ARC_RPC, CONTRACT_ADDRESS } from "./constants";
-import { RUGA_MARKET_ABI } from "./abi";
+import { Contract, Interface, JsonRpcProvider, MaxUint256, Wallet, formatUnits, parseUnits } from "ethers";
+import { ARC_RPC, CONTRACT_ADDRESS, USDC_ADDRESS } from "./constants";
+import { ERC20_ABI, RUGA_MARKET_ABI } from "./abi";
 
 let provider: JsonRpcProvider | null = null;
 let agentContract: Contract | null = null;
@@ -132,4 +132,38 @@ export async function verifyBetTransactionDetails(input: {
   }
 
   return receipt;
+}
+
+export function getAgentWalletAddress(): string {
+  const key = process.env.AGENT_PRIVATE_KEY;
+  if (!key) throw new Error("AGENT_PRIVATE_KEY is required");
+  return new Wallet(key).address;
+}
+
+export async function agentPlaceBet(
+  onChainMarketId: number,
+  side: "yes" | "no",
+  amountUsdc: number
+): Promise<{ txHash: string; walletAddress: string }> {
+  const key = process.env.AGENT_PRIVATE_KEY;
+  if (!key) throw new Error("AGENT_PRIVATE_KEY is required");
+  if (!USDC_ADDRESS) throw new Error("NEXT_PUBLIC_USDC_ADDRESS is required");
+  if (!CONTRACT_ADDRESS) throw new Error("NEXT_PUBLIC_CONTRACT_ADDRESS is required");
+
+  const wallet = new Wallet(key, getProvider());
+  const parsed = parseUnits(String(amountUsdc), 6);
+
+  const usdc = new Contract(USDC_ADDRESS, ERC20_ABI, wallet);
+  const allowance: bigint = await usdc.allowance(wallet.address, CONTRACT_ADDRESS);
+  if (allowance < parsed) {
+    const approveTx = await usdc.approve(CONTRACT_ADDRESS, MaxUint256);
+    await approveTx.wait();
+  }
+
+  const contract = new Contract(CONTRACT_ADDRESS, RUGA_MARKET_ABI, wallet);
+  const tx = side === "yes"
+    ? await contract.betYes(onChainMarketId, parsed)
+    : await contract.betNo(onChainMarketId, parsed);
+  const receipt = await tx.wait();
+  return { txHash: receipt.hash as string, walletAddress: wallet.address };
 }
