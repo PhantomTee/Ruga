@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Nav } from "./Nav";
 import { formatUsd, truncateAddress } from "@/lib/format";
 
-type Leader = { wallet: string; won: number };
+type Leader = { wallet: string; volume: number; won: number };
 
 function LoadingDots() {
   const [count, setCount] = useState(1);
@@ -42,12 +42,18 @@ export function LeaderboardClient() {
           <div className="border-2 border-black bg-white p-10 max-w-lg">
             <div className="font-display text-4xl text-black mb-3">NOBODY YET.</div>
             <p className="font-mono text-sm text-black/60">
-              Leaderboard fills up once markets resolve and winners claim their USDC.
-              Be the first to call a rug correctly.
+              Place bets to appear on the leaderboard. Top bettors by volume are ranked here.
             </p>
           </div>
         ) : (
           <div className="max-w-2xl space-y-2">
+            {/* Column headers */}
+            <div className="flex items-center gap-4 px-5 py-2">
+              <span className="w-14 shrink-0" />
+              <span className="font-mono text-xs text-black/40 uppercase flex-1">Wallet</span>
+              <span className="font-mono text-xs text-black/40 uppercase w-28 text-right shrink-0">Volume</span>
+              <span className="font-mono text-xs text-black/40 uppercase w-24 text-right shrink-0">Winnings</span>
+            </div>
             {leaders.map((row, i) => (
               <div
                 key={row.wallet}
@@ -59,8 +65,11 @@ export function LeaderboardClient() {
                 <span className="font-mono text-sm text-black flex-1 truncate">
                   {truncateAddress(row.wallet)}
                 </span>
-                <span className="font-mono font-bold text-black shrink-0">
-                  ${formatUsd(row.won)}
+                <span className="font-mono font-bold text-black w-28 text-right shrink-0">
+                  ${formatUsd(row.volume)}
+                </span>
+                <span className={`font-mono text-sm w-24 text-right shrink-0 ${row.won > 0 ? "text-black font-bold" : "text-black/30"}`}>
+                  {row.won > 0 ? `$${formatUsd(row.won)}` : "—"}
                 </span>
               </div>
             ))}
