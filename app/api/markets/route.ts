@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { getOnChainMarket } from "@/lib/chain";
 import type { MarketRecord } from "@/lib/constants";
 import { toMessage } from "@/lib/errors";
 
@@ -25,6 +26,29 @@ const MARKET_LIST_COLUMNS = [
   "final_price"
 ].join(",");
 
+// Per-process pool cache to limit RPC calls under 5-second polling pressure
+let poolCache: { pools: Map<number, { yesPool: string; noPool: string }>; expiresAt: number } | null = null;
+
+async function loadPoolsFromChain(rows: MarketRecord[]): Promise<Map<number, { yesPool: string; noPool: string }>> {
+  const now = Date.now();
+  if (poolCache && now < poolCache.expiresAt) return poolCache.pools;
+
+  const settled = await Promise.allSettled(
+    rows.map(async (m) => {
+      const c = await getOnChainMarket(Number(m.on_chain_id));
+      return { id: Number(m.id), yesPool: c.yesPool, noPool: c.noPool };
+    })
+  );
+
+  const pools = new Map<number, { yesPool: string; noPool: string }>();
+  for (const r of settled) {
+    if (r.status === "fulfilled") pools.set(r.value.id, { yesPool: r.value.yesPool, noPool: r.value.noPool });
+  }
+
+  if (pools.size > 0) poolCache = { pools, expiresAt: now + 10_000 };
+  return pools;
+}
+
 export async function GET() {
   try {
     const supabase = getSupabaseAdmin();
@@ -43,8 +67,18 @@ export async function GET() {
         .map((market, index) => [String(market.id), index + 1])
     );
 
+    // Overlay on-chain pool values so the list always shows accurate pool bars.
+    // Falls back to Supabase yes_pool/no_pool if the RPC call fails.
+    const chainPools = await loadPoolsFromChain(rows).catch(() => new Map<number, { yesPool: string; noPool: string }>());
+
     return NextResponse.json(
-      { markets: rows.map((market) => ({ ...market, display_id: displayIds.get(String(market.id)) ?? null })) },
+      {
+        markets: rows.map((market) => ({
+          ...market,
+          display_id: displayIds.get(String(market.id)) ?? null,
+          ...chainPools.get(Number(market.id)),
+        })),
+      },
       { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
     );
   } catch (error) {
