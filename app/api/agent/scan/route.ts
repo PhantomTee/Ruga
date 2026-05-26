@@ -10,6 +10,7 @@ import { fetchDexScreenerNewListings } from "@/lib/signals/dexscreener";
 import type { CommitStatus } from "@/lib/agent-status";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { toMessage } from "@/lib/errors";
+import { placeAgentBets } from "@/lib/place-agent-bets";
 
 const COMMUNITY_REPOS = ["freqtrade/freqtrade-strategies"];
 
@@ -241,7 +242,10 @@ async function scan(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ marketsCreated, tokensScanned: [...new Set(tokensScanned)] });
+    // After scanning, immediately bet on any newly eligible markets
+    const { bets } = await placeAgentBets().catch(() => ({ bets: [] }));
+
+    return NextResponse.json({ marketsCreated, tokensScanned: [...new Set(tokensScanned)], betResults: bets });
 
   } catch (error) {
     return NextResponse.json({ error: toMessage(error) }, { status: 500 });
