@@ -8,6 +8,7 @@ import { createConfig, http, WagmiProvider } from "wagmi";
 import { mainnet } from "wagmi/chains";
 import { defineChain } from "viem";
 import { ToastProvider } from "./Toast";
+import { Preloader } from "./Preloader";
 
 // Fallback to 1 during SSG/prerender (when env vars may not be available in Preview builds).
 // At runtime in production the real chain ID is always present.
@@ -66,6 +67,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             "--ck-overlay-background": "rgba(0,0,0,0.6)"
           }}
         >
+          <Preloader />
           <ToastProvider>{children}</ToastProvider>
         </ConnectKitProvider>
       </QueryClientProvider>
