@@ -70,11 +70,15 @@ export function PortfolioClient() {
   useEffect(() => {
     if (!address) return;
     const key = address.toLowerCase();
-    // Prevent duplicate fetches for the same address within the same mount
     if (fetchedFor.current === key) return;
     fetchedFor.current = key;
 
-    if (!portfolioCache.has(key)) setLoading(true);
+    // If cache already has data, skip the background refetch entirely.
+    // The background fetch completing calls setBets/setMarkets with new object
+    // references which triggers a full re-render and causes visible twitching.
+    if (portfolioCache.has(key)) return;
+
+    setLoading(true);
     setError(null);
 
     fetch(`/api/portfolio?wallet=${key}`)
