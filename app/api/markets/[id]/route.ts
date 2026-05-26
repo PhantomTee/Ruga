@@ -53,8 +53,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       }
     }
 
+    // Exclude onChain.id — it's the contract-native index and would overwrite
+    // the Supabase database id, causing BetModal to record bets with the wrong
+    // market_id and making the bet history query return zero results.
+    const { id: _onChainNativeId, ...onChainData } = onChain;
+
     return NextResponse.json(
-      { market: { ...market, ...onChain, display_id: displayId || null }, bets: bets || [], chart },
+      { market: { ...market, ...onChainData, display_id: displayId || null }, bets: bets || [], chart },
       { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
     );
   } catch (error) {
