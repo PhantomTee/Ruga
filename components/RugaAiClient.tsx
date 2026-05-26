@@ -152,6 +152,7 @@ function LoadingDots() {
 export function RugaAiClient() {
   const [picks, setPicks] = useState<Pick[]>([]);
   const [totalDeployed, setTotalDeployed] = useState(0);
+  const [agentAddress, setAgentAddress] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -160,6 +161,7 @@ export function RugaAiClient() {
       .then((d) => {
         setPicks(d.picks || []);
         setTotalDeployed(d.totalDeployed || 0);
+        setAgentAddress(d.agentAddress || null);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -206,6 +208,14 @@ export function RugaAiClient() {
               <div className="font-mono text-xs text-black/40 uppercase">Avg Confidence</div>
               <div className="font-display text-3xl text-ruga-red mt-1">{avgConfidence}%</div>
             </div>
+          </div>
+        )}
+
+        {/* Agent wallet address */}
+        {agentAddress && (
+          <div className="mb-6 max-w-2xl border-2 border-black bg-white px-4 py-3 flex items-center justify-between gap-4">
+            <span className="font-mono text-xs text-black/40 uppercase shrink-0">Agent Wallet</span>
+            <span className="font-mono text-xs text-black truncate">{agentAddress}</span>
           </div>
         )}
 

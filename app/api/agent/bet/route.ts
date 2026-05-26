@@ -46,7 +46,8 @@ export async function POST(request: NextRequest) {
       .in("market_id", marketIds);
 
     const alreadyBet = new Set((existingBets || []).map((b) => b.market_id));
-    const eligible = markets.filter((m) => !alreadyBet.has(m.id));
+    // Limit to the 3 highest-confidence markets the agent hasn't bet on yet
+    const eligible = markets.filter((m) => !alreadyBet.has(m.id)).slice(0, 3);
 
     if (!eligible.length) return NextResponse.json({ bets: [], skipped: "already bet on all eligible markets" });
 

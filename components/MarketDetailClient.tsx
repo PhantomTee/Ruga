@@ -284,6 +284,9 @@ export function MarketDetailClient({ id }: { id: string }) {
             </p>
           </div>
 
+          {/* DexScreener live feed */}
+          <DexScreenerWidget symbol={marketSymbol(market)} />
+
           {/* Resolution */}
           {market.resolved && (
             <div className="border-2 border-black bg-white p-5 font-mono text-sm text-black">
@@ -400,6 +403,69 @@ function Stat({ label, value, highlight }: { label: string; value: string; highl
     <div className="border-2 border-black p-3">
       <div className="font-mono text-xs text-black/40 uppercase">{label}</div>
       <div className={`font-mono text-sm font-bold mt-1 ${highlight ? "text-ruga-red" : "text-black"}`}>{value}</div>
+    </div>
+  );
+}
+
+function DexScreenerWidget({ symbol }: { symbol: string }) {
+  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
+  const [dexUrl, setDexUrl] = useState(`https://dexscreener.com/search?q=${encodeURIComponent(symbol)}`);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(symbol)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const pair = data.pairs?.[0];
+        if (pair?.url) {
+          setEmbedUrl(`${pair.url}?embed=1&theme=dark`);
+          setDexUrl(pair.url);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setReady(true));
+  }, [symbol]);
+
+  return (
+    <div className="border-2 border-black bg-white p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="font-display text-xl text-black">LIVE CHART</div>
+        <a
+          href={dexUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-mono text-xs text-black/40 hover:text-black transition-colors underline underline-offset-2"
+        >
+          DEXSCREENER ↗
+        </a>
+      </div>
+
+      {!ready ? (
+        <div className="h-80 flex items-center justify-center font-mono text-xs text-black/30 animate-pulse">
+          LOADING CHART…
+        </div>
+      ) : embedUrl ? (
+        <iframe
+          src={embedUrl}
+          title={`${symbol} on DexScreener`}
+          className="w-full border-0"
+          style={{ height: 420 }}
+          loading="lazy"
+          allow="clipboard-write"
+        />
+      ) : (
+        <div className="h-32 flex flex-col items-center justify-center gap-3">
+          <p className="font-mono text-sm text-black/40">No chart found for ${symbol}</p>
+          <a
+            href={dexUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-xs border-2 border-black px-4 py-2 hover:bg-black hover:text-white transition-colors"
+          >
+            SEARCH DEXSCREENER ↗
+          </a>
+        </div>
+      )}
     </div>
   );
 }
