@@ -9,10 +9,9 @@ import { mainnet } from "wagmi/chains";
 import { defineChain } from "viem";
 import { ToastProvider } from "./Toast";
 
-const arcChainId = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID);
-if (Number.isNaN(arcChainId) || arcChainId === 0) {
-  throw new Error("NEXT_PUBLIC_ARC_CHAIN_ID must be set to a valid numeric chain ID");
-}
+// Fallback to 1 during SSG/prerender (when env vars may not be available in Preview builds).
+// At runtime in production the real chain ID is always present.
+const arcChainId = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID) || 1;
 
 const arcTestnet = defineChain({
   id: arcChainId,

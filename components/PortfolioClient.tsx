@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAccount } from "wagmi";
 import { useModal } from "connectkit";
 import { Nav } from "./Nav";
 import { formatUsd, timeAgoShort } from "@/lib/format";
+
+// Module-level cache so navigating away and back doesn't re-show a loading spinner
+const portfolioCache = new Map<string, { bets: Bet[]; markets: Record<number, MarketInfo> }>();
 
 type Bet = {
   id: string;
@@ -56,21 +59,36 @@ function LoadingDots() {
 export function PortfolioClient() {
   const { address } = useAccount();
   const { setOpen: openConnectKit } = useModal();
-  const [bets, setBets] = useState<Bet[]>([]);
-  const [markets, setMarkets] = useState<Record<number, MarketInfo>>({});
-  const [loading, setLoading] = useState(false);
+  const cached = address ? portfolioCache.get(address.toLowerCase()) : undefined;
+  const [bets, setBets] = useState<Bet[]>(cached?.bets ?? []);
+  const [markets, setMarkets] = useState<Record<number, MarketInfo>>(cached?.markets ?? {});
+  // Only show full loading spinner on first visit; subsequent visits show stale data immediately
+  const [loading, setLoading] = useState(!cached && !!address);
   const [error, setError] = useState<string | null>(null);
+  const fetchedFor = useRef<string | null>(null);
 
   useEffect(() => {
     if (!address) return;
+    const key = address.toLowerCase();
+    if (fetchedFor.current === key) return;
+    fetchedFor.current = key;
+
+    // If cache already has data, skip the background refetch entirely.
+    // The background fetch completing calls setBets/setMarkets with new object
+    // references which triggers a full re-render and causes visible twitching.
+    if (portfolioCache.has(key)) return;
+
     setLoading(true);
     setError(null);
-    fetch(`/api/portfolio?wallet=${address}`)
+
+    fetch(`/api/portfolio?wallet=${key}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.error) throw new Error(d.error);
-        setBets(d.bets || []);
-        setMarkets(d.markets || {});
+        const fresh = { bets: d.bets || [], markets: d.markets || {} };
+        portfolioCache.set(key, fresh);
+        setBets(fresh.bets);
+        setMarkets(fresh.markets);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

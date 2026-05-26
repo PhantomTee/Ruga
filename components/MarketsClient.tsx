@@ -97,7 +97,9 @@ export function MarketsClient() {
     const onRefresh = () => refreshFromServer();
     const onBetRecorded = (event: Event) => {
       applyRecordedBet((event as CustomEvent).detail);
-      refreshFromServer();
+      // Don't call refreshFromServer() here — it races with the Supabase write
+      // and can return stale data that overwrites the optimistic update.
+      // onSuccess → onRefresh already triggers a server reload after the modal closes.
     };
     const t = window.setInterval(onRefresh, 5_000);
     window.addEventListener("focus", onRefresh);

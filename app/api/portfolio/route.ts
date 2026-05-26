@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const { data: bets, error: betsError } = await supabase
       .from("bets")
       .select("*")
-      .eq("wallet_address", wallet)
+      .eq("wallet_address", wallet.toLowerCase())
       .gte("created_at", "2020-01-01T00:00:00Z")
       .order("created_at", { ascending: false });
     if (betsError) throw betsError;
