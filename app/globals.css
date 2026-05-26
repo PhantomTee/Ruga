@@ -33,3 +33,15 @@ textarea {
 ::-webkit-scrollbar-thumb {
   background: #000000;
 }
+
+@keyframes slam {
+  0%   { transform: scale(1.55) translateY(-12px); opacity: 1; }
+  65%  { transform: scale(0.95) translateY(3px); }
+  82%  { transform: scale(1.02) translateY(-1px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+@keyframes slam-sub {
+  0%   { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
