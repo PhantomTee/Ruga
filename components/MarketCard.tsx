@@ -63,8 +63,8 @@ export function MarketCard({ market, onRefresh }: { market: Market; onRefresh: (
           />
         </div>
         <div className="flex justify-between mt-2 font-mono text-xs text-black/60">
-          <span>YES {yesPct}% · {yes.toFixed(0)} USDC</span>
-          <span>NO {noPct}% · {no.toFixed(0)} USDC</span>
+          <span>YES {yesPct}%<span className="hidden sm:inline"> · {yes.toFixed(0)} USDC</span></span>
+          <span>NO {noPct}%<span className="hidden sm:inline"> · {no.toFixed(0)} USDC</span></span>
         </div>
       </div>
 

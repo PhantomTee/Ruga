@@ -164,7 +164,7 @@ export function PortfolioClient() {
 
             {/* Win / Loss summary */}
             {resolvedBets.length > 0 && (
-              <div className="border-2 border-black bg-white px-5 py-4 flex gap-8">
+              <div className="border-2 border-black bg-white px-5 py-4 flex flex-wrap gap-6 sm:gap-8">
                 <div>
                   <div className="font-mono text-xs text-black/40 uppercase">Wins</div>
                   <div className="font-display text-4xl text-black">{wins.length}</div>
@@ -196,7 +196,7 @@ export function PortfolioClient() {
                       <div className="min-w-0 flex-1">
                         <Link
                           href={`/market/${bet.market_id}`}
-                          className="font-display text-2xl text-black hover:text-ruga-red transition-colors"
+                          className="font-display text-xl sm:text-2xl text-black hover:text-ruga-red transition-colors"
                         >
                           ${market?.token_symbol || bet.market_id}
                         </Link>

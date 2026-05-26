@@ -48,7 +48,7 @@ export function Nav() {
             {/* Hamburger — mobile only */}
             <button
               onClick={() => setOpen((o) => !o)}
-              className="sm:hidden border-2 border-black w-9 h-9 flex flex-col items-center justify-center gap-1.5 hover:bg-black hover:text-white transition-colors"
+              className="sm:hidden border-2 border-black w-11 h-11 flex flex-col items-center justify-center gap-1.5 hover:bg-black hover:text-white transition-colors"
               aria-label="Toggle menu"
             >
               <span

@@ -33,7 +33,7 @@ export function Preloader() {
       <span
         className="font-mono text-black/70 uppercase tracking-widest select-none"
         style={{
-          fontSize: "clamp(0.6rem, 1.8vw, 1rem)",
+          fontSize: "clamp(0.7rem, 3vw, 1rem)",
           marginTop: "clamp(0.75rem, 2vw, 1.5rem)",
           animation: "slam-sub 280ms ease-out 420ms both",
         }}

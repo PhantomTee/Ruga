@@ -448,8 +448,7 @@ function DexScreenerWidget({ symbol }: { symbol: string }) {
         <iframe
           src={embedUrl}
           title={`${symbol} on DexScreener`}
-          className="w-full border-0"
-          style={{ height: 420 }}
+          className="w-full border-0 h-64 sm:h-[420px]"
           loading="lazy"
           allow="clipboard-write"
         />

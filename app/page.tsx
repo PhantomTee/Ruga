@@ -62,7 +62,7 @@ export default function LandingPage() {
 
       {/* Stats bar */}
       {stats && (
-        <div className="border-b-2 border-black bg-black px-6 py-2 flex flex-wrap gap-x-8 gap-y-1 items-center">
+        <div className="border-b-2 border-black bg-black px-6 py-2 flex flex-wrap gap-x-4 sm:gap-x-8 gap-y-1 items-center">
           <span className="font-mono text-xs text-white/60">
             <span className="text-white font-bold">{stats.totalMarkets}</span> MARKETS
           </span>

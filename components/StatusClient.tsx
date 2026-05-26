@@ -125,7 +125,7 @@ export function StatusClient() {
                       }`}>
                         {m.outcome ? "RUGGED" : "SURVIVED"}
                       </div>
-                      <div className="font-mono text-xs text-black/40">
+                      <div className="font-mono text-xs text-black/40 hidden sm:block">
                         Market #{m.display_id ?? m.id}
                       </div>
                       {CONTRACT_ADDRESS && (
